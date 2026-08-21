@@ -2,6 +2,42 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 
 
+# 25. Error Classification
+class AdapterError(Exception):
+    """Base class for all adapter errors."""
+    pass
+
+class AuthenticationRequiredError(AdapterError):
+    pass
+
+class RateLimitedError(AdapterError):
+    pass
+
+class AccessRestrictedError(AdapterError):
+    pass
+
+class NetworkError(AdapterError):
+    pass
+
+class ParsingError(AdapterError):
+    pass
+
+class InvalidJobError(AdapterError):
+    pass
+
+class SourceUnavailableError(AdapterError):
+    pass
+
+class UnsupportedOperationError(NotImplementedError, AdapterError):
+    pass
+
+class HumanInterventionRequiredError(AdapterError):
+    pass
+
+class UnknownAdapterError(AdapterError):
+    pass
+
+
 class JobSourceAdapter(ABC):
     """
     Abstract Base Class for all Job Source Adapters (Mock, LinkedIn, Indeed, Company Careers, etc.).
@@ -37,8 +73,11 @@ class JobSourceAdapter(ABC):
         pass
 
     @abstractmethod
-    def health_check(self) -> bool:
-        """Performs a health check verifying source connectivity or status."""
+    def health_check(self) -> str:
+        """
+        Performs a health check verifying source status.
+        Returns one of: available, authentication_required, blocked, rate_limited, unsupported, error, healthy
+        """
         pass
 
     def metadata(self) -> Dict[str, Any]:
@@ -53,5 +92,15 @@ class JobSourceAdapter(ABC):
             "requires_authentication": False,
             "requires_human_interaction": False,
             "automation_allowed": True,
+            # 18. Source Permissions
+            "capabilities": {
+                "DISCOVERY": True,
+                "APPLICATION": False,
+                "BROWSER": False,
+                "API": False,
+                "FEED": False,
+                "HUMAN_ASSISTED": False,
+            },
             "notes": "Standard adapter implementation adhering to platform compliance boundaries.",
         }
+

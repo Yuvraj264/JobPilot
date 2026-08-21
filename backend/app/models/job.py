@@ -40,6 +40,7 @@ class JobSource(Base):
     raw_jobs = relationship("RawJob", back_populates="source", cascade="all, delete-orphan")
     jobs = relationship("Job", back_populates="source")
     discovery_runs = relationship("JobDiscoveryRun", back_populates="source", cascade="all, delete-orphan")
+    configuration_record = relationship("SourceConfiguration", back_populates="source", uselist=False, cascade="all, delete-orphan")
 
 
 class RawJob(Base):
@@ -103,6 +104,12 @@ class Job(Base):
     source_metadata = Column(JSON, default=dict, nullable=False)
     status = Column(String(50), default="DISCOVERED", nullable=False, index=True)  # DISCOVERED, ACTIVE, EXPIRED, CLOSED, DUPLICATE, POTENTIAL_DUPLICATE, INVALID, SKIPPED
 
+    # Job Freshness and URL verification
+    source_updated_at = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, default=func.now(), nullable=False)
+    url_status = Column(String(50), default="UNKNOWN", nullable=False)  # REACHABLE, NOT_FOUND, REDIRECTED, BLOCKED, UNKNOWN
+    url_verified_at = Column(DateTime, nullable=True)
+
     # Relationships
     raw_job = relationship("RawJob", back_populates="normalized_job")
     source = relationship("JobSource", back_populates="jobs")
@@ -127,7 +134,41 @@ class JobDiscoveryRun(Base):
     duplicates = Column(Integer, default=0, nullable=False)
     invalid_jobs = Column(Integer, default=0, nullable=False)
     
+    # Discovery Run metrics
+    pages_visited = Column(Integer, default=0, nullable=False)
+    requests_made = Column(Integer, default=0, nullable=False)
+    rate_limit_events = Column(Integer, default=0, nullable=False)
+    authentication_events = Column(Integer, default=0, nullable=False)
+    source_status = Column(String(50), default="healthy", nullable=False)
+    stale_jobs = Column(Integer, default=0, nullable=False)
+
     error_message = Column(Text, nullable=True)
 
     # Relationships
     source = relationship("JobSource", back_populates="discovery_runs")
+
+
+class SourceConfiguration(Base):
+    """
+    Detailed setup configuration for a job source (credentials, selector path mappings, rate limits).
+    """
+    __tablename__ = "source_configurations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_id = Column(Integer, ForeignKey("job_sources.id", ondelete="CASCADE"), nullable=False, unique=True)
+    
+    enabled = Column(Boolean, default=True, nullable=False)
+    discovery_enabled = Column(Boolean, default=True, nullable=False)
+    application_enabled = Column(Boolean, default=False, nullable=False)
+    
+    max_jobs_per_run = Column(Integer, default=50, nullable=False)
+    max_pages_per_run = Column(Integer, default=5, nullable=False)
+    rate_limit = Column(Float, default=60.0, nullable=False)  # requests per minute
+    
+    configuration = Column(JSON, default=dict, nullable=False)  # URL, DOM Selectors, API tokens etc.
+    
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    source = relationship("JobSource", back_populates="configuration_record")

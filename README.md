@@ -18,10 +18,22 @@ JobPilot is an AI-assisted job application automation platform designed to disco
 - **Phase 7 — Intelligent Form Understanding & Screening Question Engine**: `QuestionClassifier`, `AnswerSourceResolver`, `AnswerLengthConstraint`, `AnswerGenerator` with **Strict Anti-Fabrication Safeguards**, `AnswerValidator`, `QuestionProcessingService`, and screening review queue.
 - **Phase 8 — Job-Specific Resume Tailoring & Application Package Generation**: `JobRequirementExtractor`, `EvidenceSelector` (strength rating), `ResumeTailoringPlan`, `ResumeKeywordAnalyzer`, `ResumeTruthfulnessValidator` (mandatory anti-fabrication validator), `ChangeTracker`, `StandardPDFRenderer`, `StandardDOCXRenderer`, and `ApplicationPackageService`.
 - **Phase 9 — Application Package, Human Approval & Submission Control Layer**: `Application`, `ApplicationSnapshot`, `PackageVersion`, `ApplicationApproval`, `SubmissionAuthorization`, `SubmissionRun`, and `ApplicationAuditLog` models, `ApplicationValidationService` (blocking vs warnings), `ApplicationApprovalService` (explicit confirmation), `SubmissionAuthorizationService` (time-bound tokens), `SubmissionStateMachine`, `MockSubmissionAdapter`, `SubmissionEngine`, `ApplicationAuditService` (timeline synthesis), and React `ApplicationControlManager`.
+- **Phase 10 — Real Job Source Discovery & Platform Adapter Integration**: `SourceConfiguration` model, `CompanyCareersJobSourceAdapter` (JSON-LD parsing, DOM CSS scraping, Greenhouse and Lever APIs), compliance matrices, standard error classification, token-based Jaccard similarity deduplication, freshness engine, async URL verification checks, and configuration UI.
 
 ---
 
-## API Endpoints (Version 0.9.0)
+## API Endpoints (Version 1.0.0)
+
+### Job Discovery & Ingestion API (`/api/jobs`)
+- `GET /api/jobs/sources` — List all registered job sources.
+- `GET /api/jobs/sources/{source_name}` — Get single source details.
+- `GET /api/jobs/sources/{source_name}/config` — Get source setup configuration settings.
+- `PATCH /api/jobs/sources/{source_name}/config` — Update source setup configuration settings.
+- `POST /api/jobs/sources/{source_name}/enable` — Enable source.
+- `POST /api/jobs/sources/{source_name}/disable` — Disable source.
+- `POST /api/jobs/discover` — Ingest jobs from all enabled sources.
+- `POST /api/jobs/discover/{source_name}` — Ingest jobs from a specific source.
+- `POST /api/jobs/verify-urls` — Trigger async URL reachability verification.
 
 ### Application Control API (`/api/applications`)
 - `POST /api/applications` — Initialize application record from package.
@@ -48,7 +60,7 @@ Run backend test suite:
 source .venv/bin/activate
 PYTHONPATH=backend:browser-agent pytest tests/
 ```
-All **82 automated tests** passing.
+All **90 automated tests** passing.
 
 Run frontend build:
 ```bash

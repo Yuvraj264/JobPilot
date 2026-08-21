@@ -89,3 +89,28 @@ class DiscoverySummaryResponse(BaseModel):
     jobs_updated: int
     duplicates: int
     invalid_jobs: int
+
+
+class SourceConfigurationResponse(BaseModel):
+    id: int
+    source_id: int
+    enabled: bool
+    discovery_enabled: bool
+    application_enabled: bool
+    max_jobs_per_run: int
+    max_pages_per_run: int
+    rate_limit: float
+    configuration: Dict[str, Any]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SourceConfigurationUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    discovery_enabled: Optional[bool] = None
+    application_enabled: Optional[bool] = None
+    max_jobs_per_run: Optional[int] = None
+    max_pages_per_run: Optional[int] = None
+    rate_limit: Optional[float] = None
+    configuration: Optional[Dict[str, Any]] = None
+

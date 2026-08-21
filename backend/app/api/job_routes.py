@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 
 from app.database.connection import get_db
-from app.models.job import JobSource, Job, JobDiscoveryRun
+from app.models.job import JobSource, Job, JobDiscoveryRun, SourceConfiguration
 from app.services.adapters.registry import registry
 from app.services.job_discovery_service import JobDiscoveryService
 from app.schemas.job import (
@@ -16,6 +16,8 @@ from app.schemas.job import (
     JobDiscoveryRunResponse,
     JobStatsResponse,
     DiscoverySummaryResponse,
+    SourceConfigurationResponse,
+    SourceConfigurationUpdate,
 )
 
 router = APIRouter(prefix="/api/jobs", tags=["Job Discovery & Ingestion"])
@@ -211,3 +213,72 @@ def update_job_status(id: int, payload: JobStatusUpdate, db: Session = Depends(g
     db.commit()
     db.refresh(job)
     return job
+
+
+@router.get("/sources/{source_name}/config", response_model=SourceConfigurationResponse)
+def get_job_source_config(source_name: str, db: Session = Depends(get_db)):
+    """Retrieve detailed setup configuration for a job source."""
+    source = db.query(JobSource).filter(JobSource.name == source_name.lower()).first()
+    if not source:
+        adapter = registry.get(source_name)
+        if not adapter:
+            raise HTTPException(status_code=404, detail=f"Job source '{source_name}' not found.")
+        source = JobDiscoveryService.sync_job_source_record(db, adapter)
+    
+    config = JobDiscoveryService.get_or_create_source_config(db, source)
+    return config
+
+
+@router.patch("/sources/{source_name}/config", response_model=SourceConfigurationResponse)
+def update_job_source_config(
+    source_name: str,
+    payload: SourceConfigurationUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update setup configuration parameters for a job source."""
+    source = db.query(JobSource).filter(JobSource.name == source_name.lower()).first()
+    if not source:
+        adapter = registry.get(source_name)
+        if not adapter:
+            raise HTTPException(status_code=404, detail=f"Job source '{source_name}' not found.")
+        source = JobDiscoveryService.sync_job_source_record(db, adapter)
+        
+    config = JobDiscoveryService.get_or_create_source_config(db, source)
+    
+    if payload.enabled is not None:
+        config.enabled = payload.enabled
+        source.enabled = payload.enabled
+    if payload.discovery_enabled is not None:
+        config.discovery_enabled = payload.discovery_enabled
+    if payload.application_enabled is not None:
+        config.application_enabled = payload.application_enabled
+    if payload.max_jobs_per_run is not None:
+        config.max_jobs_per_run = payload.max_jobs_per_run
+    if payload.max_pages_per_run is not None:
+        config.max_pages_per_run = payload.max_pages_per_run
+    if payload.rate_limit is not None:
+        config.rate_limit = payload.rate_limit
+    if payload.configuration is not None:
+        merged = dict(config.configuration)
+        merged.update(payload.configuration)
+        config.configuration = merged
+        
+    db.commit()
+    db.refresh(config)
+    
+    if config.enabled:
+        registry.enable(source_name)
+    else:
+        registry.disable(source_name)
+        
+    return config
+
+
+@router.post("/verify-urls")
+def trigger_url_verification(
+    age_hours: int = Query(24, ge=1),
+    limit: int = Query(15, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """Trigger checking status of stored job URLs to verify if they are still reachable."""
+    return JobDiscoveryService.verify_job_urls(db, age_hours=age_hours, max_jobs_to_verify=limit)

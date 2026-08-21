@@ -231,3 +231,225 @@ def get_mock_captcha_page(id: int):
 def submit_mock_application(data: Dict[str, Any]):
     MOCK_SUBMITTED_APPLICATIONS.append(data)
     return JSONResponse(status_code=201, content={"status": "submitted", "id": len(MOCK_SUBMITTED_APPLICATIONS)})
+
+
+# --- SYNTHETIC CAREER SITES ---
+
+@router.get("/synthetic-careers/site_a", response_class=HTMLResponse)
+def get_site_a(page: int = 1):
+    jobs_list = [
+        {"id": 1, "title": "Frontend Engineer", "company": "TechCorp A", "location": "Remote, US"},
+        {"id": 2, "title": "Data Scientist", "company": "TechCorp A", "location": "New York, NY"},
+    ]
+    if page > 1:
+        jobs_list = [
+            {"id": 3, "title": "DevOps Engineer", "company": "TechCorp A", "location": "Austin, TX"},
+        ]
+    
+    cards_html = ""
+    for j in jobs_list:
+        cards_html += f"""
+        <div class="job-card" style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem;">
+            <h3 class="job-title">{j["title"]}</h3>
+            <span class="job-company">{j["company"]}</span>
+            <span class="job-location">{j["location"]}</span>
+            <a class="job-link" href="http://localhost:8000/mock/synthetic-careers/site_a/job/{j['id']}">View Details</a>
+        </div>
+        """
+        
+    next_link = f'<a class="next-page" href="http://localhost:8000/mock/synthetic-careers/site_a?page={page+1}">Next Page</a>' if page == 1 else ''
+    
+    html_content = f"""
+    <html>
+        <head><title>TechCorp A Careers - Page {page}</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>TechCorp A Careers Portal</h2>
+            <div id="job-listings">{cards_html}</div>
+            <div class="pagination">{next_link}</div>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/site_a/job/{id}", response_class=HTMLResponse)
+def get_site_a_job(id: int):
+    jobs_db = {
+        1: {"title": "Frontend Engineer", "company": "TechCorp A", "location": "Remote, US", "description": "React development job. Requires 3+ years experience.", "salary": "120000", "exp": "3"},
+        2: {"title": "Data Scientist", "company": "TechCorp A", "location": "New York, NY", "description": "Machine learning modeling. Requires Python, SQL, PyTorch.", "salary": "150000", "exp": "4"},
+        3: {"title": "DevOps Engineer", "company": "TechCorp A", "location": "Austin, TX", "description": "AWS infrastructure scaling. Kubernetes and CI/CD pipelines.", "salary": "140000", "exp": "5"},
+    }
+    job = jobs_db.get(id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    html_content = f"""
+    <html>
+        <head><title>{job['title']} - TechCorp A</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>{job['title']}</h2>
+            <div class="job-company">{job['company']}</div>
+            <div class="job-location">{job['location']}</div>
+            <div class="job-description">{job['description']}</div>
+            <div class="job-salary">{job['salary']}</div>
+            <div class="job-experience">{job['exp']}</div>
+            <a class="apply-url" href="http://localhost:8000/mock/synthetic-careers/site_a/job/{id}/apply">Apply Now</a>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/site_b", response_class=HTMLResponse)
+def get_site_b():
+    json_ld_data = [
+        {
+            "@context": "https://schema.org/",
+            "@type": "JobPosting",
+            "title": "Backend Developer",
+            "description": "We are seeking a Python / Django Developer. Postings must be standard.",
+            "datePosted": "2026-08-20T00:00:00Z",
+            "hiringOrganization": {
+                "@type": "Organization",
+                "name": "Innovate Ltd",
+                "sameAs": "https://innovateltd.com"
+            },
+            "jobLocation": {
+                "@type": "Place",
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressLocality": "London",
+                    "addressCountry": "UK"
+                }
+            },
+            "employmentType": "FULL_TIME",
+            "identifier": {
+                "@type": "PropertyValue",
+                "name": "Innovate Ltd",
+                "value": "INV-201"
+            },
+            "baseSalary": {
+                "@type": "MonetaryAmount",
+                "currency": "GBP",
+                "value": {
+                    "@type": "QuantitativeValue",
+                    "value": 85000,
+                    "unitText": "YEAR"
+                }
+            }
+        },
+        {
+            "@context": "https://schema.org/",
+            "@type": "JobPosting",
+            "title": "Data Engineer",
+            "description": "SQL and Spark pipeline building. Large data processing experience required.",
+            "datePosted": "2026-08-21T00:00:00Z",
+            "hiringOrganization": {
+                "@type": "Organization",
+                "name": "Innovate Ltd",
+                "sameAs": "https://innovateltd.com"
+            },
+            "jobLocation": {
+                "@type": "Place",
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressLocality": "London",
+                    "addressCountry": "UK"
+                }
+            },
+            "employmentType": "CONTRACT",
+            "identifier": {
+                "@type": "PropertyValue",
+                "name": "Innovate Ltd",
+                "value": "INV-202"
+            },
+            "baseSalary": {
+                "@type": "MonetaryAmount",
+                "currency": "GBP",
+                "value": {
+                    "@type": "QuantitativeValue",
+                    "value": 95000,
+                    "unitText": "YEAR"
+                }
+            }
+        }
+    ]
+    import json
+    json_ld_str = json.dumps(json_ld_data)
+    
+    html_content = f"""
+    <html>
+        <head>
+            <title>Innovate Ltd Careers</title>
+            <script type="application/ld+json">
+            {json_ld_str}
+            </script>
+        </head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>Innovate Ltd Careers Portal (JSON-LD)</h2>
+            <p>All job openings are stored in structured JSON-LD format in the head metadata.</p>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/site_c", response_class=HTMLResponse)
+def get_site_c(page: int = 1):
+    jobs_list = [
+        {"id": 4, "title": "Cloud Architect", "company": "CloudSys", "location": "San Francisco, CA"},
+    ]
+    if page > 1:
+        jobs_list = [
+            {"id": 5, "title": "Security Analyst", "company": "CloudSys", "location": "Seattle, WA"},
+        ]
+        
+    items_html = ""
+    for j in jobs_list:
+        items_html += f"""
+        <article class="job-item" style="border: 1px dashed blue; padding: 1.2rem; margin-bottom: 0.8rem;">
+            <h2 class="title-class"><a class="link-class" href="http://localhost:8000/mock/synthetic-careers/site_c/job/{j['id']}">{j["title"]}</a></h2>
+            <div class="company-class">{j["company"]}</div>
+            <div class="loc-class">{j["location"]}</div>
+        </article>
+        """
+        
+    pagination_button = f'<button class="load-more-btn" onclick="location.href=\'http://localhost:8000/mock/synthetic-careers/site_c?page={page+1}\'">Load More</button>' if page == 1 else ''
+    
+    html_content = f"""
+    <html>
+        <head><title>CloudSys Job Postings - Page {page}</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>CloudSys Careers Site</h2>
+            <section class="listings">{items_html}</section>
+            <div class="navigation">{pagination_button}</div>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/site_c/job/{id}", response_class=HTMLResponse)
+def get_site_c_job(id: int):
+    jobs_db = {
+        4: {"title": "Cloud Architect", "company": "CloudSys", "location": "San Francisco, CA", "description": "AWS architecture & cost optimization role. Requires 8+ years experience.", "salary": "180000"},
+        5: {"title": "Security Analyst", "company": "CloudSys", "location": "Seattle, WA", "description": "SOC analyst role, network traffic monitoring, threat hunting.", "salary": "110000"},
+    }
+    job = jobs_db.get(id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    html_content = f"""
+    <html>
+        <head><title>{job['title']} - CloudSys</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>{job['title']}</h2>
+            <div class="company-class">{job['company']}</div>
+            <div class="loc-class">{job['location']}</div>
+            <div class="desc-class">{job['description']}</div>
+            <div class="salary-class">{job['salary']}</div>
+            <a class="app-url-class" href="http://localhost:8000/mock/apply-now/{id}">Apply Now</a>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)

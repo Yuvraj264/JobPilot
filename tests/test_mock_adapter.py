@@ -6,7 +6,7 @@ from app.services.adapters.linkedin import LinkedInJobSourceAdapter
 def test_mock_adapter_discovery():
     adapter = MockJobSourceAdapter()
     assert adapter.source_name() == "mock"
-    assert adapter.health_check() is True
+    assert adapter.health_check() in ["healthy", True]
 
     jobs = adapter.discover_jobs(limit=10, page=1)
     assert len(jobs) == 10

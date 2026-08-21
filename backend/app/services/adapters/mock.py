@@ -67,11 +67,19 @@ class MockJobSourceAdapter(JobSourceAdapter):
                 return j
         return None
 
-    def health_check(self) -> bool:
-        return True
+    def health_check(self) -> str:
+        return "healthy"
 
     def metadata(self) -> Dict[str, Any]:
         meta = super().metadata()
         meta["supported_access_method"] = "Synthetic JSON Fixture"
+        meta["capabilities"] = {
+            "DISCOVERY": True,
+            "APPLICATION": False,
+            "BROWSER": False,
+            "API": False,
+            "FEED": False,
+            "HUMAN_ASSISTED": False,
+        }
         meta["notes"] = "Mock adapter generating synthetic job listings for safe local pipeline verification."
         return meta
