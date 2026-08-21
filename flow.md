@@ -75,13 +75,28 @@ This document details the planned development sequence for **JobPilot**, an AI-a
 - React frontend match dashboard component (`MatchDashboardManager.jsx`) integrated into `App.jsx`
 - Automated test suite (`53 passed in 4.07s`) including unit tests and end-to-end matching pipeline verification
 
-### Phase 6 — Job Matching Engine
-**Status**: PLANNED
-- Core evaluation engine matching profile skills/experience against job requirements
+### Phase 6 — Mock Application Environment & Application Agent Foundation
+**Status**: COMPLETED
+- Synthetic local mock application server (`/mock/jobs`, `/mock/apply/{id}/step/1`, `/step/2`, `/step/3`, `/review`, `/captcha`)
+- Generic `ApplicationTarget` abstraction (`MockApplicationTarget`, placeholders `LinkedInApplicationTarget`, `IndeedApplicationTarget`, `CompanyCareerApplicationTarget`)
+- Centralized `BrowserController` Playwright Chromium wrapper (launch, navigate, screenshot capture, DOM inspection, page state retrieval)
+- `PageInspector` extracting structured element objects (forms, inputs, selects, textareas, radio groups, checkboxes, file inputs)
+- `FormAnalyzer` classifying controls into semantic field types (`PERSONAL_NAME`, `EMAIL`, `PHONE`, `LOCATION`, `DEGREE`, `INSTITUTION`, `GRADUATION_YEAR`, `EXPERIENCE`, `CURRENT_ROLE`, `SKILLS`, `SALARY`, `RELOCATION`, `RESUME`, `SCREENING_QUESTION`, `UNKNOWN`)
+- `ProfileFieldMapper` mapping semantic fields to user profile and default resume data with confidence scores and `MISSING_DATA` handling without fabricating values
+- `ApplicationActionPlanner` generating validated action plans (`FILL`, `SELECT`, `CHECK`, `UNCHECK`, `UPLOAD`, `CLICK`, `WAIT`, `PAUSE_FOR_HUMAN`, `VERIFY`)
+- `ApplicationActionExecutor` using 5-tier selector priority, executing validated schemas, verifying outcomes, recording `ActionLog` entries, and capturing screenshots
+- State Machine (`CREATED -> OPENING -> INSPECTING -> ANALYZING -> PLANNING -> FILLING -> VERIFYING -> PAUSED / READY_FOR_REVIEW / FAILED`)
+- Relational database schema (`AutomationRun`, `ActionLog`)
+- REST API router mounted at `/api/automation` (`/run`, `/runs`, `/runs/{id}`, `/runs/{id}/resume`, `/pause`, `/actions`, `/screenshots`)
+- Alembic database migration (`c9dc6936452f_create_automation_tables.py`) applied to PostgreSQL
+- React frontend automation monitor component (`AutomationMonitorManager.jsx`) integrated into `App.jsx`
+- Automated test suite (`60 passed in 13.40s`) including unit tests, 7 mock failure scenarios, and end-to-end browser automation pipeline verification reaching `READY_FOR_REVIEW`
 
-### Phase 7 — Mock Application Environment
+---
+
+### Phase 7 — Intelligent Form Understanding & Screening Question Engine
 **Status**: PLANNED
-- Local testbed server with mock job application forms for safe end-to-end testing
+- Semantic form understanding, question classification, and truthful screening question answer generation based on user profile facts
 
 ### Phase 8 — Browser Automation Engine
 **Status**: PLANNED

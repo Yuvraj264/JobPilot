@@ -46,6 +46,12 @@ from app.schemas.matching import (
     MatchStatsResponse,
     BatchMatchRequest,
 )
+from app.schemas.automation import (
+    ActionLogResponse,
+    AutomationRunResponse,
+    AutomationRunDetailResponse,
+    AutomationStartRequest,
+)
 
 __all__ = [
     "ProfileCreate",
@@ -88,4 +94,8 @@ __all__ = [
     "MatchConfigUpdate",
     "MatchStatsResponse",
     "BatchMatchRequest",
+    "ActionLogResponse",
+    "AutomationRunResponse",
+    "AutomationRunDetailResponse",
+    "AutomationStartRequest",
 ]

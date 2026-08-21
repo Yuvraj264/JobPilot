@@ -1,7 +1,7 @@
 # JobPilot — AI-Assisted Job Application Automation Platform
 
-> **Current Phase**: **Phase 5 — Job Matching & Intelligent Job Selection** (Completed)  
-> *Note: JobPilot currently evaluates and ranks jobs, but does NOT automatically submit applications.*
+> **Current Phase**: **Phase 6 — Mock Application Environment & Application Agent Foundation** (Completed)  
+> *Note: JobPilot operates browser automation exclusively against the local mock environment (`/mock/apply/*`). Real job-platform automation is NOT implemented yet.*
 
 ---
 
@@ -252,6 +252,56 @@ Normalized Job + Candidate Profile
 - `SKIP`: Match Score < 70% OR Hard Constraint Failure
 
 > **Automation Boundary Note**: JobPilot evaluates match fit and generates transparent recommendations, but does **NOT** automatically submit applications in Phase 5.
+
+---
+
+## Application Agent API Endpoints (`/api/automation`)
+
+* `POST /api/automation/run` — Start browser automation run against target job
+* `GET /api/automation/runs` — List historical automation runs
+* `GET /api/automation/runs/{id}` — Retrieve detailed run status and state machine timeline
+* `POST /api/automation/runs/{id}/resume` — Resume a paused automation run
+* `POST /api/automation/runs/{id}/pause` — Pause an active automation run
+* `GET /api/automation/runs/{id}/actions` — Retrieve step-by-step action audit logs
+* `GET /api/automation/runs/{id}/screenshots` — Retrieve captured step screenshot metadata
+
+---
+
+## Application Agent Architecture
+
+```text
+ApplicationAgent
+       ↓
+BrowserController (Playwright Chromium Wrapper)
+       ↓
+PageInspector (DOM Structured Element Extractor)
+       ↓
+FormAnalyzer (Deterministic Semantic Field Classification)
+       ↓
+ProfileFieldMapper (Profile & Resume Fact Mapping with Confidence)
+       ↓
+ApplicationActionPlanner (Validated Action Plan Generator)
+       ↓
+ApplicationActionExecutor (5-Tier Selector Priority Execution)
+       ↓
+Step Verification & Screenshots (State Machine Audit Log)
+```
+
+### Application State Machine
+- `CREATED`: Automation run record initialized
+- `OPENING`: Launching Playwright browser & opening application start URL
+- `INSPECTING`: Extracting structured input element metadata from DOM
+- `ANALYZING` & `PLANNING`: Classifying fields and generating validated action plan
+- `FILLING`: Executing `FILL`, `SELECT`, `CHECK`, `UPLOAD` actions
+- `VERIFYING`: Verifying step completion and advancing page
+- `PAUSED`: Paused for human intervention (CAPTCHA, screening questions requiring reasoning, missing profile data, low confidence)
+- `READY_FOR_REVIEW`: Reached final review page (stopped safely before submission)
+- `FAILED`: Failure state recorded with debug message
+
+### Safety Rules & Automation Boundaries
+1. **Local Testbed Only**: Automated form entry operates strictly against local synthetic mock pages (`/mock/apply/*`). Real external platform automation is prohibited.
+2. **No Anti-Bot Evasion**: CAPTCHA bypass, stealth fingerprinting, automated authentication, and login bypass are NOT implemented.
+3. **No Automatic Final Submission**: The agent stops safely at `READY_FOR_REVIEW`.
 
 
 

@@ -28,6 +28,10 @@ from app.models.matching import (
     MatchRun,
     MatchConfig,
 )
+from app.models.automation import (
+    AutomationRun,
+    ActionLog,
+)
 
 __all__ = [
     "User",
@@ -52,4 +56,6 @@ __all__ = [
     "JobMatch",
     "MatchRun",
     "MatchConfig",
+    "AutomationRun",
+    "ActionLog",
 ]
