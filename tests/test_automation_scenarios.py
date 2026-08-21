@@ -17,9 +17,11 @@ def test_mock_scenarios():
             db.add(job)
             db.commit()
 
-        # Scenario 1: Normal Flow -> Reaches READY_FOR_REVIEW or PAUSED on screening questions
+        # Scenario 1: Normal Flow in a separate thread
         profile = seed_sample_profile(db, user_id=1)
-        run1 = ApplicationAgent.start_automation(db, profile_id=profile.id, job_id=101)
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            run1 = executor.submit(ApplicationAgent.start_automation, db, profile_id=profile.id, job_id=101).result()
         assert run1.state in ["READY_FOR_REVIEW", "PAUSED"]
         assert run1.actions_attempted > 0
 
@@ -44,7 +46,8 @@ def test_mock_scenarios():
         db.commit()
         db.refresh(profile_no_phone)
 
-        run2 = ApplicationAgent.start_automation(db, profile_id=profile_no_phone.id, job_id=101)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            run2 = executor.submit(ApplicationAgent.start_automation, db, profile_id=profile_no_phone.id, job_id=101).result()
         assert run2.state == "PAUSED"
         assert run2.human_intervention_required is True
         assert "missing" in run2.pause_reason.lower() or "phone" in run2.pause_reason.lower() or "mobile" in run2.pause_reason.lower()

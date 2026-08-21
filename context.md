@@ -3,9 +3,9 @@
 ## Architecture Overview
 - **Backend**: FastAPI (Python 3.14) running on `http://localhost:8000`.
 - **Database**: PostgreSQL 16 on `localhost:5433` (`jobpilot_db`).
-- **ORM & Migrations**: SQLAlchemy 2.0 & Alembic. Latest migration `14b124e0e1a4_add_source_config_and_discovery_metrics.py`.
+- **ORM & Migrations**: SQLAlchemy 2.0 & Alembic. Latest migration `be68281f1ea3_add_phase_12_orchestration_models`.
 - **Frontend**: React (Vite) running on `http://localhost:5173`.
-- **Automation & Testing**: Playwright Chromium & pytest (90 automated tests passing).
+- **Automation & Testing**: Playwright Chromium & pytest (100 automated tests passing).
 
 ## Completed Phases
 1. **Phase 1: Project Foundation**: FastAPI backend, PostgreSQL Docker Compose setup, Alembic migration infrastructure, Playwright Chromium environment, minimal React frontend, and pytest test suite.
@@ -18,9 +18,12 @@
 8. **Phase 8: Job-Specific Resume Tailoring & Application Package Generation**: `TailoredResume`, `ResumeTailoringRun`, and `ApplicationPackage` DB models, `JobRequirementExtractor`, `EvidenceSelector` (strength rating), `ResumeTailoringPlan`, `ResumeKeywordAnalyzer`, `ResumeTruthfulnessValidator` (mandatory anti-fabrication validator), `ChangeTracker`, `StandardPDFRenderer`, `StandardDOCXRenderer`, `ApplicationPackageService`, REST API (`/api/tailored-resumes`, `/api/application-packages`), Alembic migration `fd31e8d2b421`, React `TailoredResumeManager.jsx`, and 74 automated tests.
 9. **Phase 9: Application Package, Human Approval & Submission Control Layer**: `Application`, `ApplicationSnapshot`, `PackageVersion`, `ApplicationApproval`, `SubmissionAuthorization`, `SubmissionRun`, and `ApplicationAuditLog` DB models, `ApplicationValidationService` (blocking vs warnings), `ApplicationApprovalService` (explicit confirmation), `SubmissionAuthorizationService` (time-bound tokens), `SubmissionStateMachine`, `MockSubmissionAdapter`, `SubmissionEngine`, `ApplicationAuditService` (timeline synthesis), REST API (`/api/applications/*`), Alembic migration `289043dd9df3`, React `ApplicationControlManager.jsx`, and 82 automated tests.
 10. **Phase 10: Real Job Source Discovery & Platform Adapter Integration**: `SourceConfiguration` table, `CompanyCareersJobSourceAdapter` parsing (JSON-LD, DOM CSS selectors, Greenhouse, Lever), compliance constraints (LinkedIn/Indeed automated block enforcement), standard error classification, token-based Jaccard similarity cross-source deduplication, job freshness engine, async URL verification checks, detailed discovery runs logging metrics, dashboard config management UI, and 90 automated tests.
+11. **Phase 11: Real Application Adapter Framework & Human-Assisted Application Execution**: Generic Application Adapter, Visual check login detector, Human intervention pause/resume handlers (for CAPTCHA/login), browser isolation, allowed domains validation, and 95 automated tests.
+12. **Phase 12: Autonomous Job Application Orchestration, Scheduling, Monitoring & Analytics**: Configuration presets (`AutomationConfiguration`), Job Selection Service, Retry Manager (recoverability classification), local scheduler daemon, active monitor diagnostics, conversion analytics overview, dashboard React UI, and 100 automated tests.
 
 ## Security Controls & Safety Rules
 - Server-side security checks enforce approval + active authorization token before submission.
 - Idempotency check blocks duplicate submission attempts.
 - Submissions are restricted strictly to local mock portal (`/mock/apply/*`). No real platform automation or anti-bot evasion exists.
 - LinkedIn/Indeed automated discovery is blocked to strictly adhere to platform terms of service.
+- Dry run defaults, safety cooldown buffers, and daily limits checks are strictly verified on orchestrator pipeline entry.

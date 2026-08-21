@@ -12,11 +12,12 @@ from app.api.mock_app_routes import router as mock_app_router
 from app.api.screening_routes import router as screening_router
 from app.api.tailoring_routes import router as tailoring_router
 from app.api.application_routes import router as application_router
+from app.api.orchestration_routes import router as orchestration_router
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="JobPilot AI-assisted job application automation platform backend API.",
-    version="0.9.0",
+    version="0.12.0",
     debug=settings.DEBUG,
 )
 
@@ -39,6 +40,7 @@ app.include_router(mock_app_router)
 app.include_router(screening_router)
 app.include_router(tailoring_router)
 app.include_router(application_router)
+app.include_router(orchestration_router)
 
 
 @app.get("/", tags=["General"])
@@ -50,7 +52,7 @@ def read_root():
         "name": settings.APP_NAME,
         "environment": settings.APP_ENV,
         "status": "running",
-        "phase": "Phase 9 - Application Package, Human Approval & Submission Control Layer",
+        "phase": "Phase 12 - Autonomous Job Application Orchestration, Scheduling, Monitoring & Analytics",
         "docs_url": "/docs",
     }
 

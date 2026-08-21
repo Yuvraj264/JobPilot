@@ -21,8 +21,10 @@ def test_screening_engine_e2e_integration():
 
         profile = seed_sample_profile(db, user_id=1)
 
-        # Trigger Automation Run
-        run = ApplicationAgent.start_automation(db, profile_id=profile.id, job_id=101)
+        # Trigger Automation Run in a separate thread to prevent event loop collision
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            run = executor.submit(ApplicationAgent.start_automation, db, profile_id=profile.id, job_id=101).result()
 
         assert run.actions_attempted > 0
         assert run.state in ["READY_FOR_REVIEW", "PAUSED"]

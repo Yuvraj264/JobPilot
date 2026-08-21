@@ -7,6 +7,7 @@ import AutomationMonitorManager from './components/AutomationMonitorManager'
 import ScreeningReviewQueueManager from './components/ScreeningReviewQueueManager'
 import TailoredResumeManager from './components/TailoredResumeManager'
 import ApplicationControlManager from './components/ApplicationControlManager'
+import AutomationOrchestratorDashboard from './components/AutomationOrchestratorDashboard'
 
 function App() {
   const [status, setStatus] = useState('checking...')
@@ -29,13 +30,14 @@ function App() {
     <div style={{ fontFamily: 'sans-serif', padding: '2rem', maxWidth: '950px', margin: '0 auto' }}>
       <h1>JobPilot</h1>
       <p style={{ fontSize: '1.1rem', color: '#555' }}>
-        Phase 9: Application Package, Human Approval & Submission Control Layer
+        Phase 12: Autonomous Job Application Orchestration, Scheduling, Monitoring & Analytics
       </p>
       <div style={{ marginTop: '1rem', padding: '0.8rem', border: '1px solid #ccc', borderRadius: '8px', background: '#f9f9f9' }}>
         <p style={{ margin: '0.2rem 0' }}><strong>Backend status:</strong> {status}</p>
         <p style={{ margin: '0.2rem 0' }}><strong>Database status:</strong> {dbStatus}</p>
       </div>
 
+      <AutomationOrchestratorDashboard />
       <ProfileManager />
       <ResumeManager />
       <JobDiscoveryManager />

@@ -49,8 +49,8 @@ class ApplicationValidationService:
 
         # 3. Source Resume Checks
         if source_resume:
-            if source_resume.status != "PROCESSED":
-                blocking.append(f"BLOCKING: Source Resume status is '{source_resume.status}', expected 'PROCESSED'.")
+            if source_resume.processing_status != "PROCESSED":
+                blocking.append(f"BLOCKING: Source Resume status is '{source_resume.processing_status}', expected 'PROCESSED'.")
 
         # 4. Tailored Resume Checks
         if tailored_resume:

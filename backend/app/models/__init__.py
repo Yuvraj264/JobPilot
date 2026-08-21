@@ -50,7 +50,16 @@ from app.models.application import (
     SubmissionAuthorization,
     SubmissionRun,
     ApplicationAuditLog,
+    ApplicationSourceConfiguration,
+    HumanInterventionEvent,
+    ApplicationQueue,
 )
+from app.models.orchestration import (
+    OrchestrationRun,
+    AutomationConfiguration,
+    DailyAutomationMetric,
+)
+
 
 __all__ = [
     "User",
@@ -90,4 +99,10 @@ __all__ = [
     "SubmissionAuthorization",
     "SubmissionRun",
     "ApplicationAuditLog",
+    "ApplicationSourceConfiguration",
+    "HumanInterventionEvent",
+    "ApplicationQueue",
+    "OrchestrationRun",
+    "AutomationConfiguration",
+    "DailyAutomationMetric",
 ]

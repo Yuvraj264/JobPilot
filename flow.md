@@ -32,6 +32,9 @@ JobPilot is an AI-assisted job application automation platform. Its lifecycle fl
                    │
                    ▼
 [Phase 10: Real Job Source Discovery & Platform Adapter Integration] — COMPLETED
+                   │
+                   ▼
+[Phase 11: Real Application Adapter Framework & Human-Assisted Execution] — COMPLETED
 ```
 
 ---
@@ -72,4 +75,45 @@ JobPilot is an AI-assisted job application automation platform. Its lifecycle fl
 5. **Freshness Tracking & URL Verification**:
    - Active job listings maintain `ACTIVE` status. Unseen items transition to `STALE` and `EXPIRED` status.
    - Periodic async HTTP GET/HEAD checks update job URL status to `REACHABLE`, `NOT_FOUND`, `REDIRECTED`, or `BLOCKED`.
+
+---
+
+## Phase 11 Flow: Real Application Adapter Framework & Human-Assisted Application Execution
+
+1. **Safety Controls & Allowed Domains Verification**:
+   - Execution begins with domain validation against the configuration allowlist. Disallowed domains trigger `DomainValidationError` and immediate worker halt.
+   - Restricts daily execution and failed attempts thresholds; runs default to `DRY_RUN = true` and `mode = HUMAN_ASSISTED` to guarantee safety.
+2. **Platform Adapter Specialization**:
+   - Real platforms (LinkedIn, Indeed) enforce human login checkpoints and declare automated submission capabilities as `UNSUPPORTED`.
+   - The generic career adapter navigates forms, analyzes components, maps profile fields, and executes page fills.
+3. **Logins & CAPTCHA Pause Mechanisms**:
+   - Live visual inspections detect anti-bot elements, log-in prompts, or CAPTCHA challenges.
+   - The worker immediately pauses automation, logs a `HumanInterventionEvent` with reasons, and updates the application state to `PAUSED`.
+4. **Human Intervention Resolution & Resume**:
+   - The user resolves the intervention prompt (solving CAPTCHA or completing log-in) in the browser window, then clicks `[Resume Automation]` in the dashboard.
+   - The worker clears active interventions and resumes automated navigation/form filling.
+5. **Dry Run Previews & Real Execution Verification**:
+   - Dry runs execute all fill actions, save navigation timeline logs and final verification screenshots, but stop safely before clicking submit.
+   - Real runs execute field fills, verify confirmation pages and success text patterns, record point-in-time snapshots, and update status to `SUBMITTED`.
+
+---
+
+## Phase 12 Flow: Autonomous Job Application Orchestration, Scheduling, Monitoring & Analytics
+
+1. **Automation Configuration Preset Mapping**:
+   - The user selects or updates settings via `AutomationConfiguration`.
+   - Critical boundaries: `require_human_review = true`, `max_applications_per_run = 3`, `max_applications_per_day = 10`.
+2. **Job Eligibility Filtering & Cooldown Checks**:
+   - `JobSelectionService` scans matches for minimum match score (default 80.0) and permitted recommendations.
+   - Evaluates active queue states and checks company/title history: items applied within a 30-day window are flagged as `ALREADY_APPLIED` and automatically excluded.
+3. **Daily Application Safety Limits**:
+   - Limits checks run before every execution step. If the candidate's total applications submitted today hits `max_applications_per_day` or a per-source limit is met, the pipeline cancels run progress.
+4. **Crash Checkpoints & Recovery Isolation**:
+   - Each orchestration run transitions through states: `RUNNING` -> `COMPLETED`, `FAILED`, or `PARTIAL`.
+   - Pipeline checkpoints save states after discovery, matching, package preparation, and execution. If an execution fails or crashes, details are logged without crashing the remaining applications or future runs.
+5. **Transient Failure Categorization & Retry Manager**:
+   - `RetryManager` classifies error messages: recoverable network or browser crashes trigger a retry attempt (up to `max_retries` limit). Non-recoverable validation or anti-bot checks skip retries.
+6. **Analytics Funnel Compilation & Health Checks**:
+   - Analytics compilation calculates funnel statistics (discovered -> matched -> selected -> prepared -> submitted -> failed), failure breakdown classifications, and visual browser status checks.
+
 

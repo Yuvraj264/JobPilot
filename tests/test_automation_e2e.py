@@ -27,8 +27,10 @@ def test_end_to_end_automation_pipeline_reaches_review():
         # Step 2: Seed Profile
         profile = seed_sample_profile(db, user_id=1)
 
-        # Step 3: Trigger Automation via Agent
-        run = ApplicationAgent.start_automation(db, profile_id=profile.id, job_id=101)
+        # Step 3: Trigger Automation via Agent in a separate thread to prevent event loop collision
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            run = executor.submit(ApplicationAgent.start_automation, db, profile_id=profile.id, job_id=101).result()
 
         # Step 4: Verify Agent Pipeline Actions
         assert run.actions_attempted > 0

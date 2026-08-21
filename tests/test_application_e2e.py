@@ -20,13 +20,15 @@ def test_application_e2e_full_submission_flow():
     try:
         profile = seed_sample_profile(db, user_id=1)
 
-        job = Job(id=301, title="Senior Automation Engineer", company_name="Mock Corp", application_url="http://localhost:8000/mock/apply/301")
+        job = Job(title="Senior Automation Engineer", company_name="Mock Corp", application_url="http://localhost:8000/mock/apply/301")
         db.add(job)
         db.commit()
+        db.refresh(job)
 
-        pkg = ApplicationPackage(id=301, profile_id=profile.id, job_id=job.id, status="READY_FOR_REVIEW")
+        pkg = ApplicationPackage(profile_id=profile.id, job_id=job.id, status="READY_FOR_REVIEW")
         db.add(pkg)
         db.commit()
+        db.refresh(pkg)
 
         # 1. Create Application
         app = Application(
