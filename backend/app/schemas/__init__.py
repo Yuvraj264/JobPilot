@@ -60,6 +60,13 @@ from app.schemas.screening import (
     AnswerApproveRequest,
     AnswerProvideRequest,
 )
+from app.schemas.tailoring import (
+    TailoredResumeResponse,
+    TailoredResumePreviewResponse,
+    ChangeReportResponse,
+    ApplicationPackageResponse,
+    ApplicationPackageCreate,
+)
 
 __all__ = [
     "ProfileCreate",
@@ -112,4 +119,9 @@ __all__ = [
     "ApplicationAnswerResponse",
     "AnswerApproveRequest",
     "AnswerProvideRequest",
+    "TailoredResumeResponse",
+    "TailoredResumePreviewResponse",
+    "ChangeReportResponse",
+    "ApplicationPackageResponse",
+    "ApplicationPackageCreate",
 ]

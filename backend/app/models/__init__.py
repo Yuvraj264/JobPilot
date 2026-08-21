@@ -37,6 +37,11 @@ from app.models.screening import (
     ApplicationAnswer,
     AnswerMemory,
 )
+from app.models.tailoring import (
+    TailoredResume,
+    ResumeTailoringRun,
+    ApplicationPackage,
+)
 
 __all__ = [
     "User",
@@ -66,4 +71,7 @@ __all__ = [
     "ApplicationQuestion",
     "ApplicationAnswer",
     "AnswerMemory",
+    "TailoredResume",
+    "ResumeTailoringRun",
+    "ApplicationPackage",
 ]
