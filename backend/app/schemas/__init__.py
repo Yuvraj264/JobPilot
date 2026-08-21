@@ -28,6 +28,15 @@ from app.schemas.resume import (
     ResumeQualityResponse,
     ResumeConsistencyResponse,
 )
+from app.schemas.job import (
+    JobSourceResponse,
+    JobResponse,
+    JobDetailResponse,
+    JobStatusUpdate,
+    JobDiscoveryRunResponse,
+    JobStatsResponse,
+    DiscoverySummaryResponse,
+)
 
 __all__ = [
     "ProfileCreate",
@@ -56,4 +65,11 @@ __all__ = [
     "ResumeStatusResponse",
     "ResumeQualityResponse",
     "ResumeConsistencyResponse",
+    "JobSourceResponse",
+    "JobResponse",
+    "JobDetailResponse",
+    "JobStatusUpdate",
+    "JobDiscoveryRunResponse",
+    "JobStatsResponse",
+    "DiscoverySummaryResponse",
 ]

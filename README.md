@@ -1,7 +1,7 @@
 # JobPilot — AI-Assisted Job Application Automation Platform
 
-> **Current Phase**: **Phase 3 — Resume Management & Resume Intelligence** (Completed)  
-> *Note: JobPilot is currently in Phase 3 (Resume Intelligence). Job discovery, matching, and application automation belong to future phases.*
+> **Current Phase**: **Phase 4 — Job Source Architecture & Job Discovery Foundation** (Completed)  
+> *Note: JobPilot is currently in Phase 4 (Job Discovery Foundation). Real LinkedIn/Indeed scraping, job matching, and application automation belong to future phases.*
 
 ---
 
@@ -171,10 +171,41 @@ PYTHONPATH=backend:browser-agent pytest tests/
 4. **Persistence**: Extracted skills, education, experiences, projects, certifications saved to database tables.
 5. **Intelligence**: `ConsistencyService` compares against UserProfile; `QualityService` generates 0-100 quality score.
 
-### Parser Limitations
-- **OCR is not supported yet**: Scanned image-only PDFs without extractable text raise a descriptive error.
-- **AI interpretation is abstracted**: Layer 2 `AIProvider` interface is implemented with an offline `LocalMockAIProvider` fallback so external paid APIs are not required.
-- **Job-specific resume tailoring**: Belongs to future phases.
+---
+
+## Job Discovery API Endpoints (`/api/jobs`)
+
+* `GET /api/jobs` — List jobs with filters (title, company, location, source, employment/workplace type, status) and pagination
+* `GET /api/jobs/search` — Keyword search across job title, company_name, and description
+* `GET /api/jobs/{id}` — Retrieve detailed job record
+* `PATCH /api/jobs/{id}/status` — Update job status (`ACTIVE`, `EXPIRED`, `CLOSED`, `SKIPPED`, etc.)
+* `GET /api/jobs/sources` — List registered job sources & configuration state
+* `GET /api/jobs/sources/{source_name}` — Get specific source metadata & health
+* `POST /api/jobs/sources/{source_name}/enable` — Enable target job source
+* `POST /api/jobs/sources/{source_name}/disable` — Disable target job source
+* `POST /api/jobs/discover` — Trigger job discovery across all enabled sources
+* `POST /api/jobs/discover/{source_name}` — Trigger job discovery for a specific source adapter
+* `GET /api/jobs/stats` — Retrieve overall job catalog and source metrics
+* `GET /api/jobs/discovery-runs` — Retrieve historical discovery execution audit logs
+
+---
+
+## Job Discovery & Source Adapter Architecture
+
+### 1. Adapter Interface (`JobSourceAdapter`)
+All job sources implement a unified, platform-independent interface:
+- `source_name()`, `display_name()`, `source_type()`
+- `discover_jobs(limit, page)`, `get_job_details(external_id)`, `health_check()`
+- Compliance metadata (`supported_access_method`, `requires_authentication`, `requires_human_interaction`, `automation_allowed`, `notes`).
+
+### 2. Adapter Implementations & Limitations
+- **`MockJobSourceAdapter` (`mock`)**: Fully working discovery source reading 20 synthetic jobs from `tests/fixtures/jobs.json`.
+- **`LinkedInJobSourceAdapter` (`linkedin`)**: Placeholder adapter (raises `NotImplementedError`). Real scraping/automation is NOT implemented in Phase 4.
+- **`IndeedJobSourceAdapter` (`indeed`)**: Placeholder adapter (raises `NotImplementedError`).
+- **`CompanyCareersJobSourceAdapter` (`company_careers`)**: Placeholder adapter (raises `NotImplementedError`).
+
+> **Compliance Note**: Real LinkedIn/Indeed integrations are NOT implemented in this phase. The mock adapter is currently the sole active discovery source. Stealth browser anti-bot evasion, CAPTCHA bypassing, and credential scraping are strictly prohibited.
+
 
 
 

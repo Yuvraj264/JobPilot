@@ -17,6 +17,12 @@ from app.models.resume import (
     ResumeCertification,
     ResumeProcessingEvent,
 )
+from app.models.job import (
+    JobSource,
+    RawJob,
+    Job,
+    JobDiscoveryRun,
+)
 
 __all__ = [
     "User",
@@ -34,4 +40,8 @@ __all__ = [
     "ResumeProject",
     "ResumeCertification",
     "ResumeProcessingEvent",
+    "JobSource",
+    "RawJob",
+    "Job",
+    "JobDiscoveryRun",
 ]

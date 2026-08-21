@@ -46,10 +46,20 @@ This document details the planned development sequence for **JobPilot**, an AI-a
 - React frontend resume manager component (`ResumeManager.jsx`) integrated into `App.jsx`
 - Synthetic PDF and DOCX test fixtures (`tests/fixtures/`) and 30-test automated test suite
 
-### Phase 4 — Job Source Architecture
-**Status**: PLANNED
-- Define `JobSourceAdapter` interface and pluggable architecture
-- Define `JobSource` data schema
+### Phase 4 — Job Source Architecture & Job Discovery Foundation
+**Status**: COMPLETED
+- Pluggable `JobSourceAdapter` interface (`base.py`) with compliance metadata (`automation_allowed`, `requires_human_interaction`, `notes`)
+- Central `JobSourceRegistry` (`registry.py`) providing registration, lookup, source listing, and dynamic enable/disable controls
+- Relational database schema (`JobSource`, `RawJob`, `Job`, `JobDiscoveryRun`)
+- `MockJobSourceAdapter` generating synthetic jobs from `tests/fixtures/jobs.json` with pagination support
+- Placeholder adapters (`LinkedInJobSourceAdapter`, `IndeedJobSourceAdapter`, `CompanyCareersJobSourceAdapter`) raising `NotImplementedError`
+- Normalization engine (`JobNormalizer`, `LocationNormalizer`, `EmploymentTypeNormalizer`, `WorkplaceTypeNormalizer`)
+- Deduplication engine (`JobDeduplicator`) identifying exact duplicates (URL/external ID) and flagging cross-source matches as `POTENTIAL_DUPLICATE`
+- Ingestion engine (`JobDiscoveryService`) executing discovery runs, storing raw payloads, handling partial malformed job failures without halting runs, and tracking audit logs
+- REST API endpoints mounted at `/api/jobs` for job catalog listing, search, details, status updates, sources management, mock discovery execution, and statistics
+- Alembic database migration (`221fac96b4fb_create_job_tables.py`) applied to PostgreSQL
+- React frontend job discovery manager component (`JobDiscoveryManager.jsx`) integrated into `App.jsx`
+- Complete automated test suite (`42 passed in 3.88s`) including unit tests and end-to-end discovery pipeline verification
 
 ### Phase 5 — Job Discovery and Normalization
 **Status**: PLANNED
