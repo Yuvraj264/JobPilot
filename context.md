@@ -3,9 +3,9 @@
 ## Architecture Overview
 - **Backend**: FastAPI (Python 3.14) running on `http://localhost:8000`.
 - **Database**: PostgreSQL 16 on `localhost:5433` (`jobpilot_db`).
-- **ORM & Migrations**: SQLAlchemy 2.0 & Alembic. Latest migration `fd31e8d2b421_create_tailored_resume_tables.py`.
+- **ORM & Migrations**: SQLAlchemy 2.0 & Alembic. Latest migration `289043dd9df3_create_application_control_tables.py`.
 - **Frontend**: React (Vite) running on `http://localhost:5173`.
-- **Automation & Testing**: Playwright Chromium & pytest (74 automated tests passing).
+- **Automation & Testing**: Playwright Chromium & pytest (82 automated tests passing).
 
 ## Completed Phases
 1. **Phase 1: Project Foundation**: FastAPI backend, PostgreSQL Docker Compose setup, Alembic migration infrastructure, Playwright Chromium environment, minimal React frontend, and pytest test suite.
@@ -16,3 +16,9 @@
 6. **Phase 6: Mock Application Environment & Application Agent Foundation**: Local mock application server (`/mock/apply/*`), generic `ApplicationTarget` abstraction, Playwright `BrowserController`, `PageInspector`, `FormAnalyzer`, `ProfileFieldMapper`, `ActionPlanner`, `ActionExecutor`, `ApplicationAgent` state machine, `AutomationRun` and `ActionLog` DB models, REST API (`/api/automation`), Alembic migration `c9dc6936452f`, React `AutomationMonitorManager.jsx`, and 60 automated tests.
 7. **Phase 7: Intelligent Form Understanding & Screening Question Engine**: Controlled Question Taxonomy (`QuestionType`), `QuestionClassifier`, `AnswerSourceResolver`, `AnswerLengthConstraint`, `ScreeningAIProvider` abstraction with `LocalMockScreeningAIProvider` fallback, `AnswerGenerator` with **Strict Anti-Fabrication Safeguards**, `AnswerValidator`, `QuestionProcessingService`, `ApplicationQuestion`, `ApplicationAnswer`, and `AnswerMemory` DB models, REST API (`/api/questions/*`, `/api/answers/*`), Alembic migration `2ba72b12c4b6`, React `ScreeningReviewQueueManager.jsx`, and 66 automated tests.
 8. **Phase 8: Job-Specific Resume Tailoring & Application Package Generation**: `TailoredResume`, `ResumeTailoringRun`, and `ApplicationPackage` DB models, `JobRequirementExtractor`, `EvidenceSelector` (strength rating), `ResumeTailoringPlan`, `ResumeKeywordAnalyzer`, `ResumeTruthfulnessValidator` (mandatory anti-fabrication validator), `ChangeTracker`, `StandardPDFRenderer`, `StandardDOCXRenderer`, `ApplicationPackageService`, REST API (`/api/tailored-resumes`, `/api/application-packages`), Alembic migration `fd31e8d2b421`, React `TailoredResumeManager.jsx`, and 74 automated tests.
+9. **Phase 9: Application Package, Human Approval & Submission Control Layer**: `Application`, `ApplicationSnapshot`, `PackageVersion`, `ApplicationApproval`, `SubmissionAuthorization`, `SubmissionRun`, and `ApplicationAuditLog` DB models, `ApplicationValidationService` (blocking vs warnings), `ApplicationApprovalService` (explicit confirmation), `SubmissionAuthorizationService` (time-bound tokens), `SubmissionStateMachine`, `MockSubmissionAdapter`, `SubmissionEngine`, `ApplicationAuditService` (timeline synthesis), REST API (`/api/applications/*`), Alembic migration `289043dd9df3`, React `ApplicationControlManager.jsx`, and 82 automated tests.
+
+## Security Controls & Safety Rules
+- Server-side security checks enforce approval + active authorization token before submission.
+- Idempotency check blocks duplicate submission attempts.
+- Submissions are restricted strictly to local mock portal (`/mock/apply/*`). No real platform automation or anti-bot evasion exists.

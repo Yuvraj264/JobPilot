@@ -42,6 +42,15 @@ from app.models.tailoring import (
     ResumeTailoringRun,
     ApplicationPackage,
 )
+from app.models.application import (
+    Application,
+    ApplicationSnapshot,
+    PackageVersion,
+    ApplicationApproval,
+    SubmissionAuthorization,
+    SubmissionRun,
+    ApplicationAuditLog,
+)
 
 __all__ = [
     "User",
@@ -74,4 +83,11 @@ __all__ = [
     "TailoredResume",
     "ResumeTailoringRun",
     "ApplicationPackage",
+    "Application",
+    "ApplicationSnapshot",
+    "PackageVersion",
+    "ApplicationApproval",
+    "SubmissionAuthorization",
+    "SubmissionRun",
+    "ApplicationAuditLog",
 ]
