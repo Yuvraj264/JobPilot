@@ -1,0 +1,3 @@
+"""
+Applications domain package placeholder.
+"""
