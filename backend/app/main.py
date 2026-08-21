@@ -6,11 +6,12 @@ from app.database.connection import check_db_connection
 from app.api.profile_routes import router as profile_router
 from app.api.resume_routes import router as resume_router
 from app.api.job_routes import router as job_router
+from app.api.matching_routes import router as matching_router
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="JobPilot AI-assisted job application automation platform backend API.",
-    version="0.4.0",
+    version="0.5.0",
     debug=settings.DEBUG,
 )
 
@@ -27,6 +28,7 @@ app.add_middleware(
 app.include_router(profile_router)
 app.include_router(resume_router)
 app.include_router(job_router)
+app.include_router(matching_router)
 
 
 @app.get("/", tags=["General"])
@@ -38,7 +40,7 @@ def read_root():
         "name": settings.APP_NAME,
         "environment": settings.APP_ENV,
         "status": "running",
-        "phase": "Phase 4 - Job Source Architecture & Job Discovery Foundation",
+        "phase": "Phase 5 - Job Matching & Intelligent Job Selection",
         "docs_url": "/docs",
     }
 

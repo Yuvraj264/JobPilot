@@ -1,7 +1,7 @@
 # JobPilot — AI-Assisted Job Application Automation Platform
 
-> **Current Phase**: **Phase 4 — Job Source Architecture & Job Discovery Foundation** (Completed)  
-> *Note: JobPilot is currently in Phase 4 (Job Discovery Foundation). Real LinkedIn/Indeed scraping, job matching, and application automation belong to future phases.*
+> **Current Phase**: **Phase 5 — Job Matching & Intelligent Job Selection** (Completed)  
+> *Note: JobPilot currently evaluates and ranks jobs, but does NOT automatically submit applications.*
 
 ---
 
@@ -198,13 +198,60 @@ All job sources implement a unified, platform-independent interface:
 - `discover_jobs(limit, page)`, `get_job_details(external_id)`, `health_check()`
 - Compliance metadata (`supported_access_method`, `requires_authentication`, `requires_human_interaction`, `automation_allowed`, `notes`).
 
-### 2. Adapter Implementations & Limitations
-- **`MockJobSourceAdapter` (`mock`)**: Fully working discovery source reading 20 synthetic jobs from `tests/fixtures/jobs.json`.
-- **`LinkedInJobSourceAdapter` (`linkedin`)**: Placeholder adapter (raises `NotImplementedError`). Real scraping/automation is NOT implemented in Phase 4.
-- **`IndeedJobSourceAdapter` (`indeed`)**: Placeholder adapter (raises `NotImplementedError`).
-- **`CompanyCareersJobSourceAdapter` (`company_careers`)**: Placeholder adapter (raises `NotImplementedError`).
+---
 
-> **Compliance Note**: Real LinkedIn/Indeed integrations are NOT implemented in this phase. The mock adapter is currently the sole active discovery source. Stealth browser anti-bot evasion, CAPTCHA bypassing, and credential scraping are strictly prohibited.
+## Job Matching API Endpoints (`/api/matching`)
+
+* `POST /api/matching/job/{job_id}` — Evaluate a single job against current user profile
+* `GET /api/matching/job/{job_id}` — Retrieve existing match evaluation result and structured explanation
+* `GET /api/matching/jobs` — List evaluated job matches with filters (`recommendation`, `min_score`, `eligible_only`) and pagination
+* `POST /api/matching/run` — Trigger batch matching run across active catalog jobs
+* `GET /api/matching/runs` — Retrieve historical batch matching execution logs
+* `GET /api/matching/runs/{id}` — Retrieve single match run details
+* `GET /api/matching/stats` — Retrieve matching metrics (`jobs_evaluated`, `eligible`, `apply`, `review`, `skip`, `average_score`)
+* `GET /api/matching/config` — Retrieve scoring weights and recommendation thresholds
+* `PUT /api/matching/config` — Update scoring weights and recommendation thresholds
+
+---
+
+## Job Matching & Selection Architecture
+
+### 1. Conceptual Evaluation Pipeline
+```text
+Normalized Job + Candidate Profile
+               ↓
+        EligibilityEngine
+    (Hard Failure check -> SKIP)
+               ↓
+       Component Matchers
+  (Skills, Role, Location, etc.)
+               ↓
+        ScoringEngine
+ (Weighted Score & Confidence)
+               ↓
+      RecommendationEngine
+    (APPLY / REVIEW / SKIP)
+               ↓
+     ExplanationGenerator
+ (Human-readable Facts & Reasons)
+```
+
+### 2. Weighted Scoring & Threshold Defaults
+- **Skills Match**: 35%
+- **Role Similarity**: 20%
+- **Experience Bounds**: 15%
+- **Location Alignment**: 10%
+- **Workplace Arrangement**: 5%
+- **Employment Type**: 5%
+- **Education Qualification**: 5%
+- **Semantic Similarity**: 5%
+
+**Recommendation Thresholds**:
+- `APPLY`: Match Score &ge; 85% (or user's `minimum_job_match_score` preference) & Eligible
+- `REVIEW`: Match Score 70% – 84% & Eligible
+- `SKIP`: Match Score < 70% OR Hard Constraint Failure
+
+> **Automation Boundary Note**: JobPilot evaluates match fit and generates transparent recommendations, but does **NOT** automatically submit applications in Phase 5.
 
 
 

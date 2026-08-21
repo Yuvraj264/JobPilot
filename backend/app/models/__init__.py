@@ -23,6 +23,11 @@ from app.models.job import (
     Job,
     JobDiscoveryRun,
 )
+from app.models.matching import (
+    JobMatch,
+    MatchRun,
+    MatchConfig,
+)
 
 __all__ = [
     "User",
@@ -44,4 +49,7 @@ __all__ = [
     "RawJob",
     "Job",
     "JobDiscoveryRun",
+    "JobMatch",
+    "MatchRun",
+    "MatchConfig",
 ]

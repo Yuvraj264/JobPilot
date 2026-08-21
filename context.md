@@ -3,22 +3,23 @@
 ## 1. Project Information
 - **Project Name**: JobPilot
 - **Objective**: AI-assisted job application automation platform designed to discover jobs, evaluate fit, tailor application materials truthfully, automate form completion safely with human approval checkpoints, and track applications.
-- **Current Phase**: Phase 4 — Job Source Architecture & Job Discovery Foundation (COMPLETED)
+- **Current Phase**: Phase 5 — Job Matching & Intelligent Job Selection (COMPLETED)
 
 ## 2. Technology Stack
 - **Backend Framework**: Python 3.14, FastAPI 0.141+, Pydantic V2, Uvicorn, email-validator, pypdf 6.16+, python-docx 1.2+, python-multipart
 - **Database Layer**: PostgreSQL 15 (Docker Compose on port 5433), SQLAlchemy 2.0 ORM, Alembic migrations
 - **Browser Automation**: Playwright Python API
-- **Frontend**: React 18 (Vite) status, profile, resume, and job discovery management interface
+- **Frontend**: React 18 (Vite) status, profile, resume, job discovery, and match dashboard interface
 - **Environment Management**: Docker Compose, `.env`, `.env.example`, Pytest
 
 ## 3. Architectural Principles
 - **Adapter Pattern for Job Sources**: All job sources (company career sites, permitted platforms) implement `JobSourceAdapter`.
 - **Human-in-the-Loop Safeguards**: Applications require explicit human approval (`require_approval_before_submission = True` by default).
 - **Strict Truthfulness**: AI screening question answers and tailored resumes draw exclusively from user profile facts.
-- **Platform-Independent Discovery**: Internal systems interact exclusively with normalized `Job` records rather than platform-specific site layouts.
-- **Deterministic Normalization & Deduplication**: Jobs are normalized (location, employment type, workplace type) and deduplicated (URL, external ID, cross-source company+title match) without AI embeddings.
-- **Compliance & Safety Boundary**: Adapters declare compliance metadata (`automation_allowed`, `requires_human_interaction`). Placeholder adapters (`linkedin.py`, `indeed.py`, `company_careers.py`) raise `NotImplementedError` in this phase to prevent unauthorized scraping or anti-bot evasion.
+- **Deterministic Match Explanations**: Scores and recommendations generate structured human-readable explanations (`summary`, `strengths`, `concerns`) strictly from deterministic match facts without opaque AI black boxes.
+- **Hard Eligibility vs Soft Preferences**: Hard constraints (experience bounds, work authorization, relocation refusal) force `SKIP` recommendations regardless of semantic score.
+- **Offline Fallback Architecture**: `SemanticMatcher` provides `LocalEmbeddingProvider` text similarity (n-grams/Jaccard) without requiring paid external LLM APIs.
+- **Versioned Match Engine**: Matches record `matcher_version="1.0"` to ensure reproducibility.
 
 ## 4. Completed Work
 ### Phase 1 — Project Foundation
@@ -26,7 +27,7 @@
 
 ### Phase 2 — User Profile & Preference Engine
 - [x] Database models (`UserProfile`, `Education`, `Skill`, `Project`, `Certification`, `JobPreference`, `ApplicationPreference`).
-- [x] Profile CRUD services, deterministic completeness calculator (0-100%), compact summary endpoint, dev seed generator, React UI, test suite.
+- [x] Profile CRUD services, completeness calculator (0-100%), compact summary endpoint, dev seed generator, React UI, test suite.
 
 ### Phase 3 — Resume Management & Resume Intelligence
 - [x] Database models (`Resume`, `ResumeSkill`, `ResumeEducation`, `ResumeExperience`, `ResumeProject`, `ResumeCertification`, `ResumeProcessingEvent`).
@@ -37,23 +38,28 @@
 - [x] Database models (`JobSource`, `RawJob`, `Job`, `JobDiscoveryRun`).
 - [x] `JobSourceAdapter` abstract base class and central `JobSourceRegistry`.
 - [x] `MockJobSourceAdapter` reading synthetic jobs from `tests/fixtures/jobs.json` with pagination.
-- [x] Placeholder adapters (`linkedin`, `indeed`, `company_careers`) raising `NotImplementedError`.
-- [x] Normalization engine (`JobNormalizer`, `LocationNormalizer`, `EmploymentTypeNormalizer`, `WorkplaceTypeNormalizer`).
-- [x] `JobDeduplicator` handling exact duplicate URLs and cross-source potential duplicates.
-- [x] `JobDiscoveryService` orchestrating discovery runs, saving raw payloads, handling partial failures, and logging audit runs.
-- [x] REST API mounted at `/api/jobs` (list, search, detail, status patch, sources, discover, stats, runs).
-- [x] Alembic migration `221fac96b4fb_create_job_tables.py` applied.
-- [x] React frontend `JobDiscoveryManager.jsx` component integrated into `App.jsx`.
-- [x] Synthetic fixture (`jobs.json`) and complete test suite (`42 passed in 3.88s`).
+- [x] Normalization engine, `JobDeduplicator`, `JobDiscoveryService`, REST API (`/api/jobs`), React UI, test suite.
+
+### Phase 5 — Job Matching & Intelligent Job Selection
+- [x] Database models (`JobMatch`, `MatchRun`, `MatchConfig`).
+- [x] `EligibilityEngine` evaluating hard constraints vs soft preferences.
+- [x] Component matchers: `SkillMatcher`, `RoleMatcher`, `LocationMatcher`, `EmploymentMatcher`, `WorkplaceMatcher`, `SalaryMatcher`, `ExperienceMatcher`, `EducationMatcher`.
+- [x] `SemanticMatcher` with `LocalEmbeddingProvider` fallback.
+- [x] `ExplanationGenerator` producing structured facts (`summary`, `strengths`, `concerns`).
+- [x] `ScoringEngine` computing weighted score (0-100), confidence, and `APPLY`/`REVIEW`/`SKIP` recommendations.
+- [x] `JobMatchingService` orchestrating single matching, batch matching runs, stats, and config.
+- [x] REST API endpoints mounted at `/api/matching` (`/job/{id}`, `/jobs`, `/run`, `/runs`, `/stats`, `/config`).
+- [x] Alembic migration `efc71220df35_create_matching_tables.py` applied.
+- [x] React frontend `MatchDashboardManager.jsx` component integrated into `App.jsx`.
+- [x] Automated test suite (`53 passed in 4.07s`).
 
 ## 5. Security & Safety Decisions
-- Real scraping or browser automation on external platforms is explicitly forbidden in Phase 4.
-- Mock adapter (`mock`) is currently the sole active discovery source.
-- Anti-bot evasion, CAPTCHA bypassing, credential scraping, and rate limit evasion are strictly prohibited.
+- Real application form filling or submission is strictly forbidden in Phase 5.
+- Job matching evaluates suitability but does NOT submit applications.
+- Match explanations are transparently derived from verified profile facts.
 
 ## 6. Known Limitations
-- Real LinkedIn / Indeed integrations are not implemented yet (placeholders raise `NotImplementedError`).
-- Semantic AI job matching belongs to future phases.
+- Local embedding provider uses token/n-gram similarity; local neural vector database can be attached in future phases.
 
 ## 7. Next Phase
-- **PHASE 5 — Job Matching & Intelligent Job Selection**: Core evaluation engine matching profile skills/experience against job requirements.
+- **PHASE 6 — Mock Application Environment & Application Agent Foundation**: Local testbed server with mock job application forms for safe end-to-end browser automation testing.

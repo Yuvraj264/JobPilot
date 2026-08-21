@@ -3,7 +3,7 @@ from typing import Dict, List, Any, Optional
 
 COMMON_SKILLS = {
     "Programming": ["Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "Go", "Rust", "Ruby", "PHP", "Swift", "Kotlin"],
-    "Testing": ["Playwright", "Selenium", "Cypress", "PyTest", "JUnit", "Postman", "Appium", "Jest", "Manual Testing"],
+    "Testing": ["Playwright", "Selenium", "Cypress", "PyTest", "JUnit", "Postman", "Appium", "Jest", "Manual Testing", "API Testing", "Jira"],
     "Database": ["PostgreSQL", "MySQL", "MongoDB", "SQLite", "Redis", "Oracle", "Elasticsearch", "SQL"],
     "Framework": ["FastAPI", "React", "Node.js", "Django", "Flask", "Express", "Spring Boot", "Next.js", "Angular", "Vue"],
     "Cloud": ["AWS", "Google Cloud", "Azure", "Docker", "Kubernetes", "Terraform", "Serverless"],

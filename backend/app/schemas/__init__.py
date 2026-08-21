@@ -37,6 +37,15 @@ from app.schemas.job import (
     JobStatsResponse,
     DiscoverySummaryResponse,
 )
+from app.schemas.matching import (
+    JobMatchResponse,
+    JobMatchDetailResponse,
+    MatchRunResponse,
+    MatchConfigResponse,
+    MatchConfigUpdate,
+    MatchStatsResponse,
+    BatchMatchRequest,
+)
 
 __all__ = [
     "ProfileCreate",
@@ -72,4 +81,11 @@ __all__ = [
     "JobDiscoveryRunResponse",
     "JobStatsResponse",
     "DiscoverySummaryResponse",
+    "JobMatchResponse",
+    "JobMatchDetailResponse",
+    "MatchRunResponse",
+    "MatchConfigResponse",
+    "MatchConfigUpdate",
+    "MatchStatsResponse",
+    "BatchMatchRequest",
 ]

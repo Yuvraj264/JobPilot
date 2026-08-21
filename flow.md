@@ -61,9 +61,19 @@ This document details the planned development sequence for **JobPilot**, an AI-a
 - React frontend job discovery manager component (`JobDiscoveryManager.jsx`) integrated into `App.jsx`
 - Complete automated test suite (`42 passed in 3.88s`) including unit tests and end-to-end discovery pipeline verification
 
-### Phase 5 — Job Discovery and Normalization
-**Status**: PLANNED
-- Job ingestion pipeline and data normalization into unified `Job` schema
+### Phase 5 — Job Matching & Intelligent Job Selection
+**Status**: COMPLETED
+- `EligibilityEngine` evaluating hard constraints (minimum experience bounds, work authorization/sponsorship, location/relocation constraints) vs soft preferences
+- Component matchers: `SkillMatcher` (required vs preferred skill extraction & normalization), `RoleMatcher` (taxonomy & synonym matching), `LocationMatcher` (city equivalence & remote matching), `EmploymentMatcher`, `WorkplaceMatcher`, `SalaryMatcher` (missing salary no-penalty logic), `ExperienceMatcher`, `EducationMatcher`
+- `SemanticMatcher` with `LocalEmbeddingProvider` fallback (n-gram/token similarity) avoiding paid commercial API dependencies
+- `ExplanationGenerator` producing deterministic human-readable structured explanations (`summary`, `strengths`, `concerns`)
+- `ScoringEngine` computing weighted score (0-100), confidence (0.0-1.0), and `APPLY`/`REVIEW`/`SKIP` recommendations based on eligibility and user thresholds
+- Relational database schema (`JobMatch`, `MatchRun`, `MatchConfig`)
+- `JobMatchingService` orchestrating single job matching, batch matching runs, statistics calculation, and config management
+- REST API router mounted at `/api/matching` (`/job/{id}`, `/jobs`, `/run`, `/runs`, `/stats`, `/config`)
+- Alembic database migration (`efc71220df35_create_matching_tables.py`) applied to PostgreSQL
+- React frontend match dashboard component (`MatchDashboardManager.jsx`) integrated into `App.jsx`
+- Automated test suite (`53 passed in 4.07s`) including unit tests and end-to-end matching pipeline verification
 
 ### Phase 6 — Job Matching Engine
 **Status**: PLANNED
