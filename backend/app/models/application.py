@@ -175,3 +175,73 @@ class ApplicationAuditLog(Base):
     metadata_json = Column(JSON, default=dict, nullable=False)
 
     application = relationship("Application", backref=backref("audit_logs", cascade="all, delete-orphan", passive_deletes=True))
+
+
+class ApplicationSourceConfiguration(Base):
+    """
+    Setup configuration parameters and security limits for automating applications on a source.
+    """
+    __tablename__ = "application_source_configurations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_id = Column(Integer, ForeignKey("job_sources.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+
+    enabled = Column(Boolean, default=False, nullable=False)
+    mode = Column(String(50), default="HUMAN_ASSISTED", nullable=False)  # AUTOMATIC, HUMAN_ASSISTED, MANUAL, UNSUPPORTED
+    allowed_domains = Column(JSON, default=list, nullable=False)
+    capabilities = Column(JSON, default=dict, nullable=False)
+
+    max_applications_per_run = Column(Integer, default=5, nullable=False)
+    max_applications_per_day = Column(Integer, default=10, nullable=False)
+    max_failed_attempts = Column(Integer, default=3, nullable=False)
+    max_human_interventions = Column(Integer, default=5, nullable=False)
+    require_human_review = Column(Boolean, default=True, nullable=False)
+
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    source = relationship("JobSource", backref=backref("app_config", uselist=False, cascade="all, delete-orphan"))
+
+
+class HumanInterventionEvent(Base):
+    """
+    Timeline audit events representing paused state requiring user intervention.
+    """
+    __tablename__ = "human_intervention_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    automation_run_id = Column(Integer, ForeignKey("automation_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # LOGIN_REQUIRED, CAPTCHA_DETECTED, AMBIGUOUS_FIELD, MISSING_DATA, DOMAIN_CHANGE, UNSUPPORTED_FIELD, UNEXPECTED_PAGE, SUBMISSION_UNVERIFIED
+    type = Column(String(50), nullable=False)
+    reason = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    resolved_at = Column(DateTime, nullable=True)
+    resolution = Column(String(50), nullable=True)  # RESOLVED, SKIPPED, CANCELLED
+    notes = Column(Text, nullable=True)
+
+    application = relationship("Application", backref=backref("intervention_events", cascade="all, delete-orphan", passive_deletes=True))
+    run = relationship("AutomationRun", backref=backref("intervention_events", cascade="all, delete-orphan", passive_deletes=True))
+
+
+class ApplicationQueue(Base):
+    """
+    Main queue storing approved job applications waiting for execution.
+    """
+    __tablename__ = "application_queue"
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+
+    priority = Column(Float, default=1.0, nullable=False)
+    # QUEUED, RUNNING, PAUSED, COMPLETED, FAILED, CANCELLED
+    status = Column(String(50), default="QUEUED", nullable=False, index=True)
+
+    queued_at = Column(DateTime, default=func.now(), nullable=False)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    application = relationship("Application", backref=backref("queue_record", uselist=False, cascade="all, delete-orphan"))
+

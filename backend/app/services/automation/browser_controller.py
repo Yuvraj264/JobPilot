@@ -22,6 +22,13 @@ class BrowserController:
 
     def start(self):
         if not self.playwright:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop and not loop.is_running():
+                    asyncio.set_event_loop(None)
+            except Exception:
+                pass
             self.playwright = sync_playwright().start()
             self.browser = self.playwright.chromium.launch(headless=self.headless)
             self.context = self.browser.new_context(viewport={"width": 1280, "height": 800})

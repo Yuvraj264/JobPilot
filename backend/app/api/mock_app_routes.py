@@ -453,3 +453,101 @@ def get_site_c_job(id: int):
     </html>
     """
     return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/login", response_class=HTMLResponse)
+def get_synthetic_login_page():
+    html_content = """
+    <html>
+        <head><title>Login Required - TechCorp</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>Please Log In to Continue</h2>
+            <form action="http://localhost:8000/mock/synthetic-careers/site_a" method="POST">
+                <div><label>Username</label><br/><input type="text" name="user" required /></div>
+                <div><label>Password</label><br/><input type="password" name="password" required /></div>
+                <button type="submit" id="login-btn">Log In</button>
+            </form>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/captcha", response_class=HTMLResponse)
+def get_synthetic_captcha_page():
+    html_content = """
+    <html>
+        <head><title>Security Challenge</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>Security Verification Required</h2>
+            <div id="captcha-box" class="g-recaptcha">CAPTCHA Challenge Widget</div>
+            <button id="verify-btn">Verify</button>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/unknown-fields", response_class=HTMLResponse)
+def get_synthetic_unknown_fields_page():
+    html_content = """
+    <html>
+        <head><title>Apply Now</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>Submit Application</h2>
+            <form>
+                <div><label>FullName</label><br/><input type="text" name="name" required /></div>
+                <div><label>What is your favorite pet color? *</label><br/><input type="text" name="favorite_pet_color" required /></div>
+                <button type="submit" id="submit-btn">Submit</button>
+            </form>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/unexpected-redirect", response_class=HTMLResponse)
+def get_synthetic_unexpected_redirect_page():
+    # Simulate a domain change redirect by sending client meta-refresh or direct HTTP redirect
+    # To test Playwright intercepting it:
+    html_content = """
+    <html>
+        <head>
+            <title>Redirecting...</title>
+            <meta http-equiv="refresh" content="0; url=https://malicious-domain.com/hack" />
+        </head>
+        <body>
+            <p>Redirecting to malicious domain...</p>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/success", response_class=HTMLResponse)
+def get_synthetic_success_page():
+    html_content = """
+    <html>
+        <head><title>Success</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>Thank you!</h2>
+            <p>Your application has been submitted successfully.</p>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.get("/synthetic-careers/fail", response_class=HTMLResponse)
+def get_synthetic_fail_page():
+    html_content = """
+    <html>
+        <head><title>Failure</title></head>
+        <body style="font-family: sans-serif; padding: 2rem;">
+            <h2>Error occurred</h2>
+            <p>Submission failed. Please try again.</p>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+

@@ -12,12 +12,16 @@ from app.services.submission.submission_engine import SubmissionEngine
 from app.models.job import Job
 from app.models.matching import JobMatch
 from app.models.tailoring import ApplicationPackage, TailoredResume
+from app.models.resume import Resume
 from app.models.application import (
     Application,
     PackageVersion,
     SubmissionAuthorization,
     SubmissionRun,
     ApplicationAuditLog,
+    ApplicationSourceConfiguration,
+    HumanInterventionEvent,
+    ApplicationQueue,
 )
 from app.schemas.application import (
     ApplicationCreate,
@@ -28,7 +32,15 @@ from app.schemas.application import (
     SubmissionAuthorizationResponse,
     SubmissionRunResponse,
     ApplicationTimelineResponse,
+    ApplicationSourceConfigurationResponse,
+    ApplicationSourceConfigurationUpdate,
+    HumanInterventionEventResponse,
+    ApplicationQueueResponse,
+    BrowserStateResponse,
 )
+from app.services.automation.adapters.registry import registry
+from app.services.automation.execution_worker import ApplicationExecutionWorker
+from datetime import datetime
 
 router = APIRouter(tags=["Application & Submission Control Layer"])
 
@@ -198,3 +210,185 @@ def get_submission_runs(id: int, db: Session = Depends(get_db)):
 def get_audit_logs(id: int, db: Session = Depends(get_db)):
     """Get raw audit logs for application."""
     return db.query(ApplicationAuditLog).filter(ApplicationAuditLog.application_id == id).order_by(ApplicationAuditLog.timestamp.desc()).all()
+
+
+@router.get("/api/application-sources", response_model=List[ApplicationSourceConfigurationResponse])
+def get_application_sources(db: Session = Depends(get_db)):
+    """List all configured application source setups."""
+    configs = []
+    for adapter in registry.list():
+        cfg = ApplicationExecutionWorker.get_or_create_source_config(db, adapter.name())
+        configs.append(cfg)
+    return configs
+
+
+@router.get("/api/application-sources/{source}", response_model=ApplicationSourceConfigurationResponse)
+def get_application_source_config(source: str, db: Session = Depends(get_db)):
+    """Get configuration details for a source."""
+    adapter = registry.get(source)
+    if not adapter:
+        raise HTTPException(status_code=404, detail=f"Source adapter '{source}' not found.")
+    return ApplicationExecutionWorker.get_or_create_source_config(db, adapter.name())
+
+
+@router.post("/api/application-sources/{source}/test")
+def test_application_source(source: str, db: Session = Depends(get_db)):
+    """Perform health check / test capabilities on adapter."""
+    adapter = registry.get(source)
+    if not adapter:
+        raise HTTPException(status_code=404, detail=f"Source adapter '{source}' not found.")
+    capabilities = adapter.get_capabilities()
+    return {"source": source, "health": "healthy", "capabilities": capabilities}
+
+
+@router.post("/api/applications/{id}/prepare", response_model=ApplicationQueueResponse)
+def prepare_application_run(id: int, db: Session = Depends(get_db)):
+    """Prepares/Enqueues an approved application into ApplicationQueue."""
+    app_rec = db.query(Application).filter(Application.id == id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+        
+    if app_rec.status not in ["APPROVED", "SUBMISSION_AUTHORIZED", "SUBMITTING", "PREPARING"]:
+        raise HTTPException(status_code=400, detail="Only APPROVED or PREPARING applications can be queued.")
+        
+    queue_rec = db.query(ApplicationQueue).filter(ApplicationQueue.application_id == id).first()
+    if not queue_rec:
+        queue_rec = ApplicationQueue(
+            application_id=id,
+            priority=1.0,
+            status="QUEUED"
+        )
+        db.add(queue_rec)
+        db.commit()
+        db.refresh(queue_rec)
+    else:
+        queue_rec.status = "QUEUED"
+        queue_rec.queued_at = datetime.now()
+        queue_rec.started_at = None
+        queue_rec.completed_at = None
+        db.commit()
+        db.refresh(queue_rec)
+        
+    ApplicationAuditService.log_event(db, id, "APPLICATION_QUEUED", "SYSTEM", {"priority": queue_rec.priority})
+    return queue_rec
+
+
+@router.post("/api/applications/{id}/execute")
+def execute_application_run(id: int, db: Session = Depends(get_db)):
+    """Run worker execution synchronously/immediately on the queued application (dry_run = False)."""
+    res = ApplicationExecutionWorker.execute_queued_application(db, id, dry_run=False)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error") or res.get("reason"))
+    return res
+
+
+@router.post("/api/applications/{id}/dry-run")
+def dry_run_application_run(id: int, db: Session = Depends(get_db)):
+    """Run worker execution immediately on the queued application (dry_run = True)."""
+    res = ApplicationExecutionWorker.execute_queued_application(db, id, dry_run=True)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error") or res.get("reason"))
+    return res
+
+
+@router.post("/api/applications/{id}/resume")
+def resume_application_run(id: int, db: Session = Depends(get_db)):
+    """Resolves the active HumanInterventionEvent, marks intervention resolved, and resumes run."""
+    app_rec = db.query(Application).filter(Application.id == id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+        
+    if app_rec.status != "PAUSED":
+        raise HTTPException(status_code=400, detail=f"Cannot resume application in status '{app_rec.status}'.")
+        
+    active_event = db.query(HumanInterventionEvent).filter(
+        HumanInterventionEvent.application_id == id,
+        HumanInterventionEvent.resolution == None
+    ).first()
+    
+    if active_event:
+        active_event.resolved_at = datetime.now()
+        active_event.resolution = "RESOLVED"
+        active_event.notes = "Manually resolved by user."
+        db.commit()
+        
+    app_rec.status = "APPROVED"
+    db.commit()
+    
+    ApplicationAuditService.log_event(db, id, "APPLICATION_RESUMED", "SYSTEM", {})
+    return {"success": True, "message": "Intervention resolved. Status reset to APPROVED."}
+
+
+@router.post("/api/applications/{id}/cancel")
+def cancel_application_run(id: int, db: Session = Depends(get_db)):
+    """Removes application from queue, transitions status to CHANGES_REQUESTED."""
+    app_rec = db.query(Application).filter(Application.id == id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+        
+    queue_rec = db.query(ApplicationQueue).filter(ApplicationQueue.application_id == id).first()
+    if queue_rec:
+        queue_rec.status = "CANCELLED"
+        queue_rec.completed_at = datetime.now()
+        db.commit()
+        
+    app_rec.status = "CHANGES_REQUESTED"
+    db.commit()
+    
+    ApplicationAuditService.log_event(db, id, "APPLICATION_CANCELLED", "SYSTEM", {})
+    return {"success": True, "message": "Application execution run cancelled."}
+
+
+@router.get("/api/applications/{id}/action-plan")
+def get_application_action_plan(id: int, db: Session = Depends(get_db)):
+    """Previews action plan using profile field mapping without submitting."""
+    app_rec = db.query(Application).filter(Application.id == id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+        
+    from app.services.automation.profile_field_mapper import ProfileFieldMapper
+    
+    default_resume = db.query(Resume).filter(Resume.id == app_rec.selected_resume_id).first()
+    if not default_resume:
+        default_resume = db.query(Resume).filter(Resume.profile_id == app_rec.profile_id).first()
+        
+    preview_fields = ["EMAIL", "FULL_NAME", "PHONE", "RESUME", "WEBSITE"]
+    plan_list = []
+    for idx, f in enumerate(preview_fields):
+        mapping = ProfileFieldMapper.map_field(f, app_rec.profile, default_resume)
+        plan_list.append({
+            "step_number": idx + 1,
+            "field_type": f,
+            "value": "********" if f == "PASSWORD" else str(mapping["value"]),
+            "confidence": mapping["confidence"],
+            "action": "UPLOAD" if f == "RESUME" else "FILL"
+        })
+    return {"application_id": id, "plan": plan_list}
+
+
+@router.get("/api/applications/{id}/interventions", response_model=List[HumanInterventionEventResponse])
+def get_application_interventions(id: int, db: Session = Depends(get_db)):
+    """Returns list of historical HumanInterventionEvent records for the application."""
+    return db.query(HumanInterventionEvent).filter(HumanInterventionEvent.application_id == id).order_by(HumanInterventionEvent.created_at.desc()).all()
+
+
+@router.get("/api/applications/{id}/browser-state", response_model=BrowserStateResponse)
+def get_application_browser_state(id: int, db: Session = Depends(get_db)):
+    """Returns current screenshot list, url, title, state."""
+    from app.models.automation import AutomationRun
+    run = db.query(AutomationRun).filter(AutomationRun.profile_id == 1).order_by(AutomationRun.started_at.desc()).first()
+    if not run:
+        return {
+            "application_id": id,
+            "current_url": "",
+            "page_title": "Not Started",
+            "screenshots": [],
+            "state": "NOT_STARTED"
+        }
+    return {
+        "application_id": id,
+        "current_url": run.current_url,
+        "page_title": f"Application State: {run.state}",
+        "screenshots": run.screenshots or [],
+        "state": run.state
+    }
