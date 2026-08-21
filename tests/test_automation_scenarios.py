@@ -1,3 +1,4 @@
+import time
 import pytest
 from app.database.connection import SessionLocal
 from app.models.profile import User, UserProfile, Education, JobPreference
@@ -23,7 +24,8 @@ def test_mock_scenarios():
         assert run1.actions_attempted > 0
 
         # Scenario 2: Missing Phone Number -> Agent Pauses Safely
-        user_no_phone = User(email="nophone.user@example.com")
+        unique_email = f"nophone.user.{int(time.time()*1000)}@example.com"
+        user_no_phone = User(email=unique_email)
         db.add(user_no_phone)
         db.commit()
         db.refresh(user_no_phone)
@@ -31,7 +33,7 @@ def test_mock_scenarios():
         profile_no_phone = UserProfile(
             user_id=user_no_phone.id,
             full_name="No Phone User",
-            email="nophone@example.com",
+            email=unique_email,
             phone=None,
             current_city="Bangalore",
             current_country="India",

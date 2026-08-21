@@ -95,8 +95,27 @@ This document details the planned development sequence for **JobPilot**, an AI-a
 ---
 
 ### Phase 7 — Intelligent Form Understanding & Screening Question Engine
+**Status**: COMPLETED
+- Controlled Question Taxonomy (`PERSONAL_INFORMATION`, `EDUCATION`, `EXPERIENCE`, `SKILL`, `PROJECT`, `CERTIFICATION`, `SALARY`, `LOCATION`, `RELOCATION`, `WORK_AUTHORIZATION`, `SPONSORSHIP`, `WORKPLACE_PREFERENCE`, `EMPLOYMENT_TYPE`, `AVAILABILITY`, `NOTICE_PERIOD`, `MOTIVATION`, `ROLE_INTEREST`, `COMPANY_INTEREST`, `STRENGTH`, `WEAKNESS`, `ACHIEVEMENT`, `BEHAVIORAL`, `TECHNICAL`, `GENERAL_OPEN_ENDED`, `UNKNOWN`)
+- `QuestionClassifier` categorizing question text, labels, input types, and surrounding job context with confidence scoring (returns `UNKNOWN` with confidence < 0.70 to trigger human review)
+- `AnswerSourceResolver` resolving answer source (`PROFILE`, `RESUME`, `JOB_DESCRIPTION`, `COMPANY_CONTEXT`, `DETERMINISTIC_RULE`, `AI_GENERATED`, `HUMAN`, `GENERAL_KNOWLEDGE`)
+- `AnswerLengthConstraint` extracting and enforcing character/word limits from HTML `maxlength` attributes or prompt text without truncating text mid-sentence
+- `ScreeningAIProvider` abstraction with `LocalMockScreeningAIProvider` fallback producing grounded answers using local n-gram/template context synthesis without paid LLM API cost
+- `AnswerGenerator` with **Strict Anti-Fabrication Safeguards**: checks profile/resume evidence for requested skills/experience (AWS, Selenium, leadership), returning `INSUFFICIENT_INFORMATION` and requiring human review when unpopulated
+- `AnswerValidator` verifying non-empty text, length limits, factual grounding, and prohibited claims
+- `QuestionProcessingService` orchestrating the screening pipeline and managing reusable `AnswerMemory`
+- Browser `ApplicationAgent` integration: screening questions are classified, validated, and auto-filled if confidence >= threshold, or paused (`PAUSED`) and populating the human review queue
+- Relational database schema (`ApplicationQuestion`, `ApplicationAnswer`, `AnswerMemory`)
+- REST API router mounted at `/api/questions` and `/api/answers` (`/analyze`, `/review`, `/{id}`, `/{id}/answer`, `/{id}/approve`, `/{id}/reject`, `/{id}/validate`)
+- Alembic database migration (`2ba72b12c4b6_create_screening_question_tables.py`) applied to PostgreSQL
+- React frontend review queue component (`ScreeningReviewQueueManager.jsx`) integrated into `App.jsx`
+- Automated test suite (`66 passed in 16.60s`) including unit tests, mandatory anti-fabrication safeguard tests, 8 mock scenarios, and end-to-end screening question pipeline integration
+
+---
+
+### Phase 8 — Job-Specific Resume Tailoring & Application Package Generation
 **Status**: PLANNED
-- Semantic form understanding, question classification, and truthful screening question answer generation based on user profile facts
+- Job-specific resume tailoring, keyword alignment, and customized application package generation
 
 ### Phase 8 — Browser Automation Engine
 **Status**: PLANNED

@@ -84,7 +84,9 @@ class ApplicationAgent:
                 # 3. State: PLANNING
                 run.state = "PLANNING"
                 db.commit()
-                plan = ApplicationActionPlanner.plan_page_actions(inspection, profile, default_resume)
+                plan = ApplicationActionPlanner.plan_page_actions(
+                    inspection, profile, default_resume, db=db, automation_run_id=run.id, job_id=job.id
+                )
 
                 if not plan["automatable"]:
                     run.state = "PAUSED"

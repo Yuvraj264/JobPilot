@@ -1,7 +1,7 @@
 # JobPilot — AI-Assisted Job Application Automation Platform
 
-> **Current Phase**: **Phase 6 — Mock Application Environment & Application Agent Foundation** (Completed)  
-> *Note: JobPilot operates browser automation exclusively against the local mock environment (`/mock/apply/*`). Real job-platform automation is NOT implemented yet.*
+> **Current Phase**: **Phase 7 — Intelligent Form Understanding & Screening Question Engine** (Completed)  
+> *Note: AI-generated screening question answers are strictly grounded in candidate profile facts and are reviewable by the user before submission.*
 
 ---
 
@@ -302,6 +302,42 @@ Step Verification & Screenshots (State Machine Audit Log)
 1. **Local Testbed Only**: Automated form entry operates strictly against local synthetic mock pages (`/mock/apply/*`). Real external platform automation is prohibited.
 2. **No Anti-Bot Evasion**: CAPTCHA bypass, stealth fingerprinting, automated authentication, and login bypass are NOT implemented.
 3. **No Automatic Final Submission**: The agent stops safely at `READY_FOR_REVIEW`.
+
+---
+
+## Screening Question Engine API Endpoints (`/api/questions` & `/api/answers`)
+
+* `POST /api/questions/analyze` — Analyze & classify question text without running full automation
+* `GET /api/questions/review` — Retrieve pending questions in the human review queue
+* `GET /api/questions/{id}` — Retrieve single question and answer details
+* `POST /api/questions/{id}/answer` — Generate answer for question
+* `POST /api/questions/{id}/approve` — Human user approves (or edits & approves) proposed answer
+* `POST /api/questions/{id}/reject` — Human user rejects proposed answer
+* `POST /api/answers/{id}/validate` — Re-validate an answer record
+
+---
+
+## Screening Question Engine Architecture
+
+```text
+Application Question
+       ↓
+QuestionClassifier (Taxonomy Classification & Confidence Scoring)
+       ↓
+AnswerSourceResolver (PROFILE, RESUME, JOB_DESCRIPTION, DETERMINISTIC_RULE, AI_GENERATED)
+       ↓
+AnswerGenerator (Strict Anti-Fabrication Safeguard & Length Constraint Enforcement)
+       ↓
+AnswerValidator (Non-Empty, Length Bounds & Prohibited Claim Checks)
+       ↓
+Confidence Assessment & Human Review Queue
+       ↓
+AUTO_FILL (If Validated & Confidence >= Threshold) OR PAUSE_FOR_HUMAN (Review Queue)
+```
+
+### Truthfulness & Anti-Fabrication Rules
+- **No Experience Invention**: The engine checks candidate profile/resume evidence for requested skills or technologies (e.g., AWS, Selenium, leadership). If missing, it returns `INSUFFICIENT_INFORMATION` and requires human review (`NEEDS_REVIEW`).
+- **Human Approval**: AI-generated answers are reviewable in the React `ScreeningReviewQueueManager` component before submission.
 
 
 

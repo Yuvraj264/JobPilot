@@ -32,6 +32,11 @@ from app.models.automation import (
     AutomationRun,
     ActionLog,
 )
+from app.models.screening import (
+    ApplicationQuestion,
+    ApplicationAnswer,
+    AnswerMemory,
+)
 
 __all__ = [
     "User",
@@ -58,4 +63,7 @@ __all__ = [
     "MatchConfig",
     "AutomationRun",
     "ActionLog",
+    "ApplicationQuestion",
+    "ApplicationAnswer",
+    "AnswerMemory",
 ]
