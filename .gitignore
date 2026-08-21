@@ -4,6 +4,9 @@
 *.pem
 *.key
 
+# Upload Storage
+storage/
+
 # Python
 __pycache__/
 *.py[cod]

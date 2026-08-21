@@ -32,10 +32,19 @@ This document details the planned development sequence for **JobPilot**, an AI-a
 - React profile management UI component (`ProfileManager.jsx`)
 - Pytest test suite for profile CRUD, validation rules, completeness scoring, and summary generation
 
-### Phase 3 — Resume Management
-**Status**: PLANNED
-- Define `Resume` model and document parsing infrastructure
-- File storage and text extraction capabilities
+### Phase 3 — Resume Management & Resume Intelligence
+**Status**: COMPLETED
+- Multi-resume architecture (`Resume`, `ResumeSkill`, `ResumeEducation`, `ResumeExperience`, `ResumeProject`, `ResumeCertification`, `ResumeProcessingEvent`)
+- Secure `StorageService` with filename UUID generation, size checks (10MB max), PDF/DOCX extension & MIME validation, and path traversal defense
+- Text extraction pipeline supporting PDF (`pypdf`) and DOCX (`python-docx`), with image-only scanned PDF detection
+- Layered parser: Layer 1 `DeterministicParser` (regex headers, contact info, skills dictionary, education, experience, projects, certifications) + Layer 2 `AIProvider` interface & `LocalMockAIProvider` fallback
+- Resume processing state machine (`UPLOADED -> PROCESSING -> PROCESSED` / `FAILED`) with step logging
+- `ConsistencyService` comparing canonical UserProfile vs Parsed Resume for mismatch findings
+- `QualityService` calculating deterministic 0-100 quality score and actionable suggestions
+- Complete REST API router mounted at `/api/resumes` including upload, download, status, parsed, quality, consistency, set-default, reprocess, and delete
+- Alembic database migration (`477544d0eea4_create_resume_tables.py`) applied to PostgreSQL
+- React frontend resume manager component (`ResumeManager.jsx`) integrated into `App.jsx`
+- Synthetic PDF and DOCX test fixtures (`tests/fixtures/`) and 30-test automated test suite
 
 ### Phase 4 — Job Source Architecture
 **Status**: PLANNED

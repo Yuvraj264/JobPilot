@@ -1,7 +1,7 @@
 # JobPilot — AI-Assisted Job Application Automation Platform
 
-> **Current Phase**: **Phase 2 — User Profile & Preference Engine** (Completed)  
-> *Note: JobPilot is currently in Phase 2 (Profile Engine). Job discovery, resume parsing/tailoring, matching, and application automation belong to future phases.*
+> **Current Phase**: **Phase 3 — Resume Management & Resume Intelligence** (Completed)  
+> *Note: JobPilot is currently in Phase 3 (Resume Intelligence). Job discovery, matching, and application automation belong to future phases.*
 
 ---
 
@@ -138,6 +138,44 @@ PYTHONPATH=backend:browser-agent pytest tests/
 * `GET/PUT /api/profile/preferences/job` — Job preferences update
 * `GET/PUT /api/profile/preferences/application` — Application automation preferences update
 * `POST /api/profile/seed` — Development fake data seeder
+
+---
+
+## Resume Management API Endpoints (`/api/resumes`)
+
+* `POST /api/resumes` — Upload resume document (PDF or DOCX, max 10MB)
+* `GET /api/resumes` — List user's resumes
+* `GET /api/resumes/{id}` — Fetch resume metadata
+* `DELETE /api/resumes/{id}` — Delete resume metadata and physical storage file
+* `GET /api/resumes/{id}/status` — Fetch processing status (`UPLOADED`, `PROCESSING`, `PROCESSED`, `FAILED`)
+* `GET /api/resumes/{id}/parsed` — Fetch structured parsed section details
+* `GET /api/resumes/{id}/quality` — Run 0-100 quality score analysis and suggestions
+* `GET /api/resumes/{id}/consistency` — Compare resume against User Profile to detect mismatch findings
+* `POST /api/resumes/{id}/reprocess` — Trigger re-running processing pipeline
+* `POST /api/resumes/{id}/set-default` — Mark resume as preferred default
+* `GET /api/resumes/{id}/download` — Securely stream resume file with ownership check
+
+---
+
+## Storage & Processing Pipeline Details
+
+### Storage Configuration
+- Configured via `RESUME_STORAGE_PATH=./storage/resumes` and `MAX_RESUME_FILE_SIZE_MB=10`.
+- Physical files stored outside database using safe UUID filenames (e.g. `user_1_3f2b1a_filename.pdf`).
+- Path traversal protection enforced on all read/write/delete operations.
+
+### Resume Processing Pipeline
+1. **Upload**: File validation (extension, MIME type, size) → Save to storage root.
+2. **Text Extraction**: PDF (`pypdf`) or DOCX (`python-docx`). Detects empty / image-only scanned PDFs.
+3. **Parsing**: Layer 1 regex section & keyword extraction (`DeterministicParser`) + Layer 2 `AIProvider` interface.
+4. **Persistence**: Extracted skills, education, experiences, projects, certifications saved to database tables.
+5. **Intelligence**: `ConsistencyService` compares against UserProfile; `QualityService` generates 0-100 quality score.
+
+### Parser Limitations
+- **OCR is not supported yet**: Scanned image-only PDFs without extractable text raise a descriptive error.
+- **AI interpretation is abstracted**: Layer 2 `AIProvider` interface is implemented with an offline `LocalMockAIProvider` fallback so external paid APIs are not required.
+- **Job-specific resume tailoring**: Belongs to future phases.
+
 
 
 ---

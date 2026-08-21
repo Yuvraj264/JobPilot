@@ -14,7 +14,11 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # Database Settings
-    DATABASE_URL: str = "postgresql://jobpilot:jobpilot_dev_password@localhost:5432/jobpilot_db"
+    DATABASE_URL: str = "postgresql://jobpilot:jobpilot_dev_password@localhost:5433/jobpilot_db"
+    
+    # Resume Storage Settings
+    RESUME_STORAGE_PATH: str = "./storage/resumes"
+    MAX_RESUME_FILE_SIZE_MB: int = 10
     
     # CORS Origins (parsed as list if comma separated string)
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173"

@@ -21,6 +21,13 @@ from app.schemas.profile import (
     ApplicationPreferenceUpdate,
     ApplicationPreferenceResponse,
 )
+from app.schemas.resume import (
+    ResumeResponse,
+    ResumeParsedDetailResponse,
+    ResumeStatusResponse,
+    ResumeQualityResponse,
+    ResumeConsistencyResponse,
+)
 
 __all__ = [
     "ProfileCreate",
@@ -44,4 +51,9 @@ __all__ = [
     "JobPreferenceResponse",
     "ApplicationPreferenceUpdate",
     "ApplicationPreferenceResponse",
+    "ResumeResponse",
+    "ResumeParsedDetailResponse",
+    "ResumeStatusResponse",
+    "ResumeQualityResponse",
+    "ResumeConsistencyResponse",
 ]

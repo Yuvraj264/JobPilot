@@ -3,48 +3,54 @@
 ## 1. Project Information
 - **Project Name**: JobPilot
 - **Objective**: AI-assisted job application automation platform designed to discover jobs, evaluate fit, tailor application materials truthfully, automate form completion safely with human approval checkpoints, and track applications.
-- **Current Phase**: Phase 2 — User Profile & Preference Engine (COMPLETED)
+- **Current Phase**: Phase 3 — Resume Management & Resume Intelligence (COMPLETED)
 
 ## 2. Technology Stack
-- **Backend Framework**: Python 3.14, FastAPI 0.141+, Pydantic V2, Uvicorn, email-validator
+- **Backend Framework**: Python 3.14, FastAPI 0.141+, Pydantic V2, Uvicorn, email-validator, pypdf 6.16+, python-docx 1.2+, python-multipart
 - **Database Layer**: PostgreSQL 15 (Docker Compose on port 5433), SQLAlchemy 2.0 ORM, Alembic migrations
 - **Browser Automation**: Playwright Python API
-- **Frontend**: React 18 (Vite) status & profile management interface
+- **Frontend**: React 18 (Vite) status, profile, and resume management interface
 - **Environment Management**: Docker Compose, `.env`, `.env.example`, Pytest
 
 ## 3. Architectural Principles
 - **Adapter Pattern for Job Sources**: All job sources (company career sites, permitted platforms) will implement `JobSourceAdapter`.
 - **Human-in-the-Loop Safeguards**: Applications require explicit human approval (`require_approval_before_submission = True` by default).
 - **Strict Truthfulness**: AI screening question answers and tailored resumes draw exclusively from user profile facts.
-- **Normalized Profile Architecture**: Relational SQL design with dedicated child tables for Education, Skills, Projects, Certifications, Job Preferences, and Application Preferences.
-- **Deterministic Completeness Scoring**: Profile completeness (0-100%) calculated deterministically without AI dependency.
+- **Multi-Resume Versioning**: Users can manage multiple tailored resume documents (General, QA, Data Analyst, etc.) without overwriting canonical user identity.
+- **Layered Parsing Architecture**: Layer 1 deterministic regex section/keyword extraction + Layer 2 `AIProvider` interface with offline `LocalMockAIProvider` fallback.
+- **Isolated Secure Storage**: File storage outside database with path traversal defense, file type validation, and max size limits.
 
 ## 4. Completed Work
 ### Phase 1 — Project Foundation
-- [x] Directory structure (`backend/`, `browser-agent/`, `frontend/`, `tests/`, `docs/`).
-- [x] FastAPI base app with `/` and `/health` endpoints.
-- [x] Docker Compose PostgreSQL setup.
-- [x] Alembic migration environment.
-- [x] Playwright Chromium browser launch verification.
+- [x] Base directory structure, FastAPI app, Docker Compose PostgreSQL, Alembic, Playwright launcher.
 
 ### Phase 2 — User Profile & Preference Engine
-- [x] Created database models: `User`, `UserProfile`, `Education`, `Skill`, `Project`, `Certification`, `JobPreference`, `ApplicationPreference`.
-- [x] Created Pydantic V2 request & response schemas with strict validation rules (valid email format, non-negative years of experience / salary, `end_year >= start_year`, `expiry_date >= issue_date`, non-empty names).
-- [x] Created `ProfileService` handling database CRUD queries for profile and all sub-entities.
-- [x] Created `CompletenessService` implementing a deterministic completeness scoring algorithm (0-100%) and missing section identification.
-- [x] Created `GET /api/profile/summary` endpoint providing a compact structured representation of the profile for future AI matching engines.
-- [x] Created `seed_sample_profile()` service and `POST /api/profile/seed` endpoint for dev data generation.
-- [x] Created & executed Alembic migration (`765dd9b84ef3_create_user_profile_tables.py`).
-- [x] Built React profile management UI component (`ProfileManager.jsx`).
-- [x] Built test suite covering profile CRUD, sub-resource CRUD, validation edge cases, completeness calculation, and profile summary structure (`20 passed in 1.88s`).
+- [x] Database models (`UserProfile`, `Education`, `Skill`, `Project`, `Certification`, `JobPreference`, `ApplicationPreference`).
+- [x] Profile CRUD services, deterministic completeness calculator (0-100%), compact summary endpoint, dev seed generator, React UI, test suite.
 
-## 5. Important Decisions
-- **Relational Normalized Design**: Child entities (skills, education, projects, certifications) are stored in dedicated relational tables with foreign keys and cascade delete rules rather than flat text strings or arrays in main profile.
-- **Default Safety Preference**: `require_approval_before_submission` defaults to `True`.
-- **Dev Seed Endpoint**: `POST /api/profile/seed` generates realistic fake test data (`Test User`).
+### Phase 3 — Resume Management & Resume Intelligence
+- [x] Database models (`Resume`, `ResumeSkill`, `ResumeEducation`, `ResumeExperience`, `ResumeProject`, `ResumeCertification`, `ResumeProcessingEvent`).
+- [x] `StorageService` for PDF/DOCX saving, safe UUID filenames, size checks (10MB max), path traversal defense, and deletion.
+- [x] Text extraction pipeline using `pypdf` for PDF and `python-docx` for DOCX, with scanned/image-only PDF detection.
+- [x] Layered `ResumeParser` (Layer 1 `DeterministicParser` + Layer 2 `AIProvider` interface & `LocalMockAIProvider` fallback).
+- [x] `ResumeProcessingService` state transition pipeline (`UPLOADED -> PROCESSING -> PROCESSED` / `FAILED`).
+- [x] `ConsistencyService` comparing UserProfile vs Resume for mismatch findings.
+- [x] `QualityService` for 0-100 quality scoring and suggestions.
+- [x] Complete REST API mounted at `/api/resumes` (upload, download, status, parsed, quality, consistency, set-default, reprocess, delete).
+- [x] Alembic migration `477544d0eea4_create_resume_tables.py` applied.
+- [x] React frontend `ResumeManager.jsx` component.
+- [x] Synthetic test fixtures (`tests/fixtures/`) and 30 unit tests (`30 passed in 2.62s`).
+
+## 5. Security & Safety Decisions
+- Files stored outside DB in `./storage/resumes` (ignored in `.gitignore`).
+- Storage path traversal protection enforced via `StorageService.resolve_path()`.
+- Secure download endpoint verifies profile ownership before streaming file.
+- Uploaded files are never executed.
 
 ## 6. Known Limitations
-- Initial design focuses on single authenticated user context (`user_id = 1`), while database architecture natively supports multi-user extension via `users` table FKs.
+- OCR is not supported yet (scanned image-only PDFs raise a descriptive error).
+- Commercial AI provider integration is abstracted via `AIProvider` interface but defaults to `LocalMockAIProvider`.
+- Job-specific resume tailoring belongs to future phases.
 
 ## 7. Next Phase
-- **PHASE 3 — Resume Management & Resume Intelligence**: Document upload, parsing, text extraction, resume section indexing, and resume versioning.
+- **PHASE 4 — Job Source Architecture & Job Discovery Foundation**: JobSourceAdapter interface, permitted sources, job schema normalization.

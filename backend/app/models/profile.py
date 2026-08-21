@@ -64,6 +64,7 @@ class UserProfile(Base):
     certifications = relationship("Certification", back_populates="profile", cascade="all, delete-orphan")
     job_preference = relationship("JobPreference", back_populates="profile", uselist=False, cascade="all, delete-orphan")
     application_preference = relationship("ApplicationPreference", back_populates="profile", uselist=False, cascade="all, delete-orphan")
+    resumes = relationship("Resume", back_populates="profile", cascade="all, delete-orphan")
 
 
 class Education(Base):

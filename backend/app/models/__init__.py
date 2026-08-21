@@ -8,6 +8,15 @@ from app.models.profile import (
     JobPreference,
     ApplicationPreference,
 )
+from app.models.resume import (
+    Resume,
+    ResumeSkill,
+    ResumeEducation,
+    ResumeExperience,
+    ResumeProject,
+    ResumeCertification,
+    ResumeProcessingEvent,
+)
 
 __all__ = [
     "User",
@@ -18,4 +27,11 @@ __all__ = [
     "Certification",
     "JobPreference",
     "ApplicationPreference",
+    "Resume",
+    "ResumeSkill",
+    "ResumeEducation",
+    "ResumeExperience",
+    "ResumeProject",
+    "ResumeCertification",
+    "ResumeProcessingEvent",
 ]
