@@ -6,6 +6,7 @@ from app.database.connection import get_db
 from app.services.profile_service import ProfileService
 from app.services.completeness_service import CompletenessService
 from app.services.seed_service import seed_sample_profile
+from app.api.auth import get_current_user_id
 from app.schemas.profile import (
     ProfileCreate,
     ProfileUpdate,
@@ -35,75 +36,75 @@ router = APIRouter(prefix="/api/profile", tags=["User Profile"])
 
 # --- Main Profile Endpoints ---
 @router.get("", response_model=ProfileResponse)
-def get_user_profile(db: Session = Depends(get_db)):
+def get_user_profile(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve full user profile details including education, skills, projects, certifications, and preferences."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found. Please create one.")
     return profile
 
 
 @router.post("", response_model=ProfileResponse, status_code=status.HTTP_201_CREATED)
-def create_user_profile(data: ProfileCreate, db: Session = Depends(get_db)):
+def create_user_profile(data: ProfileCreate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Create a new user profile or overwrite existing profile basic info."""
-    return ProfileService.create_profile(db, data=data, user_id=1)
+    return ProfileService.create_profile(db, data=data, user_id=current_user_id)
 
 
 @router.put("", response_model=ProfileResponse)
-def update_user_profile(data: ProfileUpdate, db: Session = Depends(get_db)):
+def update_user_profile(data: ProfileUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Update basic and professional information for the user profile."""
-    profile = ProfileService.update_profile(db, data=data, user_id=1)
+    profile = ProfileService.update_profile(db, data=data, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found.")
     return profile
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user_profile(db: Session = Depends(get_db)):
+def delete_user_profile(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Delete the user profile and all associated data."""
-    deleted = ProfileService.delete_profile(db, user_id=1)
+    deleted = ProfileService.delete_profile(db, user_id=current_user_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found.")
     return None
 
 
 @router.get("/summary", response_model=ProfileSummaryResponse)
-def get_profile_summary(db: Session = Depends(get_db)):
+def get_profile_summary(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve a compact structured summary of the user profile for AI matching engines."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     return CompletenessService.generate_summary(profile)
 
 
 @router.get("/completeness", response_model=ProfileCompletenessResponse)
-def get_profile_completeness(db: Session = Depends(get_db)):
+def get_profile_completeness(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Calculate profile completeness percentage and identify missing sections."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     return CompletenessService.calculate_completeness(profile)
 
 
 # --- Education Endpoints ---
 @router.get("/education", response_model=List[EducationResponse])
-def get_educations(db: Session = Depends(get_db)):
+def get_educations(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List all education records for the user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     return ProfileService.get_educations(db, profile.id)
 
 
 @router.post("/education", response_model=EducationResponse, status_code=201)
-def add_education(data: EducationCreate, db: Session = Depends(get_db)):
+def add_education(data: EducationCreate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Add an education record to the user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found. Please create profile first.")
     return ProfileService.add_education(db, profile.id, data)
 
 
 @router.put("/education/{id}", response_model=EducationResponse)
-def update_education(id: int, data: EducationUpdate, db: Session = Depends(get_db)):
+def update_education(id: int, data: EducationUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Update an existing education record."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     edu = ProfileService.update_education(db, edu_id=id, profile_id=profile.id, data=data)
@@ -113,9 +114,9 @@ def update_education(id: int, data: EducationUpdate, db: Session = Depends(get_d
 
 
 @router.delete("/education/{id}", status_code=204)
-def delete_education(id: int, db: Session = Depends(get_db)):
+def delete_education(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Delete an education record."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     deleted = ProfileService.delete_education(db, edu_id=id, profile_id=profile.id)
@@ -126,27 +127,27 @@ def delete_education(id: int, db: Session = Depends(get_db)):
 
 # --- Skill Endpoints ---
 @router.get("/skills", response_model=List[SkillResponse])
-def get_skills(db: Session = Depends(get_db)):
+def get_skills(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List all skills for the user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     return ProfileService.get_skills(db, profile.id)
 
 
 @router.post("/skills", response_model=SkillResponse, status_code=201)
-def add_skill(data: SkillCreate, db: Session = Depends(get_db)):
+def add_skill(data: SkillCreate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Add a new skill to the user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found. Please create profile first.")
     return ProfileService.add_skill(db, profile.id, data)
 
 
 @router.put("/skills/{id}", response_model=SkillResponse)
-def update_skill(id: int, data: SkillUpdate, db: Session = Depends(get_db)):
+def update_skill(id: int, data: SkillUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Update an existing skill entry."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     skill = ProfileService.update_skill(db, skill_id=id, profile_id=profile.id, data=data)
@@ -156,9 +157,9 @@ def update_skill(id: int, data: SkillUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/skills/{id}", status_code=204)
-def delete_skill(id: int, db: Session = Depends(get_db)):
+def delete_skill(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Delete a skill entry."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     deleted = ProfileService.delete_skill(db, skill_id=id, profile_id=profile.id)
@@ -169,27 +170,27 @@ def delete_skill(id: int, db: Session = Depends(get_db)):
 
 # --- Project Endpoints ---
 @router.get("/projects", response_model=List[ProjectResponse])
-def get_projects(db: Session = Depends(get_db)):
+def get_projects(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List all projects for the user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     return ProfileService.get_projects(db, profile.id)
 
 
 @router.post("/projects", response_model=ProjectResponse, status_code=201)
-def add_project(data: ProjectCreate, db: Session = Depends(get_db)):
+def add_project(data: ProjectCreate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Add a new project to the user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found. Please create profile first.")
     return ProfileService.add_project(db, profile.id, data)
 
 
 @router.put("/projects/{id}", response_model=ProjectResponse)
-def update_project(id: int, data: ProjectUpdate, db: Session = Depends(get_db)):
+def update_project(id: int, data: ProjectUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Update an existing project entry."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     proj = ProfileService.update_project(db, project_id=id, profile_id=profile.id, data=data)
@@ -199,9 +200,9 @@ def update_project(id: int, data: ProjectUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/projects/{id}", status_code=204)
-def delete_project(id: int, db: Session = Depends(get_db)):
+def delete_project(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Delete a project entry."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     deleted = ProfileService.delete_project(db, project_id=id, profile_id=profile.id)
@@ -212,27 +213,27 @@ def delete_project(id: int, db: Session = Depends(get_db)):
 
 # --- Certification Endpoints ---
 @router.get("/certifications", response_model=List[CertificationResponse])
-def get_certifications(db: Session = Depends(get_db)):
+def get_certifications(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List all certifications for the user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     return ProfileService.get_certifications(db, profile.id)
 
 
 @router.post("/certifications", response_model=CertificationResponse, status_code=201)
-def add_certification(data: CertificationCreate, db: Session = Depends(get_db)):
+def add_certification(data: CertificationCreate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Add a new certification to the user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found. Please create profile first.")
     return ProfileService.add_certification(db, profile.id, data)
 
 
 @router.put("/certifications/{id}", response_model=CertificationResponse)
-def update_certification(id: int, data: CertificationUpdate, db: Session = Depends(get_db)):
+def update_certification(id: int, data: CertificationUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Update an existing certification entry."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     cert = ProfileService.update_certification(db, cert_id=id, profile_id=profile.id, data=data)
@@ -242,9 +243,9 @@ def update_certification(id: int, data: CertificationUpdate, db: Session = Depen
 
 
 @router.delete("/certifications/{id}", status_code=204)
-def delete_certification(id: int, db: Session = Depends(get_db)):
+def delete_certification(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Delete a certification entry."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     deleted = ProfileService.delete_certification(db, cert_id=id, profile_id=profile.id)
@@ -255,9 +256,9 @@ def delete_certification(id: int, db: Session = Depends(get_db)):
 
 # --- Preferences Endpoints ---
 @router.get("/preferences")
-def get_preferences(db: Session = Depends(get_db)):
+def get_preferences(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve job preferences and application preferences."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     return {
@@ -267,18 +268,18 @@ def get_preferences(db: Session = Depends(get_db)):
 
 
 @router.put("/preferences/job", response_model=JobPreferenceResponse)
-def update_job_preferences(data: JobPreferenceUpdate, db: Session = Depends(get_db)):
+def update_job_preferences(data: JobPreferenceUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Update target roles, preferred locations, salary expectations, and job preferences."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     return ProfileService.update_job_preferences(db, profile_id=profile.id, data=data)
 
 
 @router.put("/preferences/application", response_model=ApplicationPreferenceResponse)
-def update_application_preferences(data: ApplicationPreferenceUpdate, db: Session = Depends(get_db)):
+def update_application_preferences(data: ApplicationPreferenceUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Update application automation behavior preferences."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
     return ProfileService.update_application_preferences(db, profile_id=profile.id, data=data)
@@ -286,6 +287,6 @@ def update_application_preferences(data: ApplicationPreferenceUpdate, db: Sessio
 
 # --- Dev Sample Seed Endpoint ---
 @router.post("/seed", response_model=ProfileResponse, status_code=201)
-def seed_dev_profile(db: Session = Depends(get_db)):
+def seed_dev_profile(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Development-only helper to seed a full realistic sample profile for quick testing."""
-    return seed_sample_profile(db, user_id=1)
+    return seed_sample_profile(db, user_id=current_user_id)

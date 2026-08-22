@@ -130,6 +130,9 @@ class CompanyCareersJobSourceAdapter(JobSourceAdapter):
         if not careers_url:
             raise ValueError(f"Missing careers_url in configuration for {company_name}")
 
+        from app.services.url_security_service import URLSecurityService
+        URLSecurityService.validate_url(careers_url)
+
         logger.info(f"Starting discovery for {company_name} using method: {method}")
 
         if method == "GREENHOUSE_API":

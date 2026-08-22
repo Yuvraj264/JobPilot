@@ -40,18 +40,23 @@ from app.schemas.application import (
 )
 from app.services.automation.adapters.registry import registry
 from app.services.automation.execution_worker import ApplicationExecutionWorker
+from app.api.auth import get_current_user_id
 from datetime import datetime
 
 router = APIRouter(tags=["Application & Submission Control Layer"])
 
 
 @router.post("/api/applications", response_model=ApplicationResponse)
-def create_application(payload: ApplicationCreate, db: Session = Depends(get_db)):
+def create_application(
+    payload: ApplicationCreate,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
     """Create a new Application tracking record."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         from app.services.seed_service import seed_sample_profile
-        profile = seed_sample_profile(db, user_id=1)
+        profile = seed_sample_profile(db, user_id=current_user_id)
 
     job = db.query(Job).filter(Job.id == payload.job_id).first()
     if not job:
@@ -94,24 +99,35 @@ def create_application(payload: ApplicationCreate, db: Session = Depends(get_db)
 
 
 @router.get("/api/applications", response_model=List[ApplicationResponse])
-def list_applications(db: Session = Depends(get_db)):
+def list_applications(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List all application control records."""
-    return db.query(Application).order_by(Application.created_at.desc()).all()
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        return []
+    return db.query(Application).filter(Application.profile_id == profile.id).order_by(Application.created_at.desc()).all()
 
 
 @router.get("/api/applications/{id}", response_model=ApplicationResponse)
-def get_application(id: int, db: Session = Depends(get_db)):
+def get_application(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve single application control record."""
-    app_rec = db.query(Application).filter(Application.id == id).first()
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
     if not app_rec:
         raise HTTPException(status_code=404, detail=f"Application {id} not found.")
     return app_rec
 
 
 @router.get("/api/applications/{id}/timeline", response_model=ApplicationTimelineResponse)
-def get_application_timeline(id: int, db: Session = Depends(get_db)):
+def get_application_timeline(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve human-readable chronological event timeline."""
-    app_rec = db.query(Application).filter(Application.id == id).first()
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
     if not app_rec:
         raise HTTPException(status_code=404, detail=f"Application {id} not found.")
 
@@ -120,9 +136,13 @@ def get_application_timeline(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/applications/{id}/validate")
-def validate_application(id: int, db: Session = Depends(get_db)):
+def validate_application(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Run Application Validation Pipeline."""
-    app_rec = db.query(Application).filter(Application.id == id).first()
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
     if not app_rec:
         raise HTTPException(status_code=404, detail=f"Application {id} not found.")
 
@@ -134,8 +154,16 @@ def validate_application(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/applications/{id}/review", response_model=ApplicationResponse)
-def request_application_review(id: int, db: Session = Depends(get_db)):
+def request_application_review(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Request human review for application (transitions to READY_FOR_REVIEW if validation passes)."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     try:
         return ApplicationApprovalService.request_review(db, id)
     except ValueError as e:
@@ -143,8 +171,21 @@ def request_application_review(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/applications/{id}/approve", response_model=ApplicationResponse)
-def approve_application(id: int, payload: ApplicationApprovalRequest, db: Session = Depends(get_db)):
+def approve_application(
+    id: int,
+    payload: ApplicationApprovalRequest,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
     """Explicitly approve application for submission."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     try:
         return ApplicationApprovalService.approve_application(
             db, id, user_confirmed=payload.user_confirmed, notes=payload.notes
@@ -154,8 +195,21 @@ def approve_application(id: int, payload: ApplicationApprovalRequest, db: Sessio
 
 
 @router.post("/api/applications/{id}/reject", response_model=ApplicationResponse)
-def reject_application(id: int, payload: ApplicationRejectRequest, db: Session = Depends(get_db)):
+def reject_application(
+    id: int,
+    payload: ApplicationRejectRequest,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
     """Reject application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     try:
         return ApplicationApprovalService.reject_application(db, id, rejection_reason=payload.rejection_reason)
     except ValueError as e:
@@ -163,8 +217,21 @@ def reject_application(id: int, payload: ApplicationRejectRequest, db: Session =
 
 
 @router.post("/api/applications/{id}/request-changes", response_model=ApplicationResponse)
-def request_changes_for_application(id: int, payload: ApplicationRequestChangesRequest, db: Session = Depends(get_db)):
+def request_changes_for_application(
+    id: int,
+    payload: ApplicationRequestChangesRequest,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
     """Request changes for application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     try:
         return ApplicationApprovalService.request_changes(db, id, change_instructions=payload.change_instructions)
     except ValueError as e:
@@ -172,8 +239,16 @@ def request_changes_for_application(id: int, payload: ApplicationRequestChangesR
 
 
 @router.post("/api/applications/{id}/authorize-submission", response_model=SubmissionAuthorizationResponse)
-def authorize_submission(id: int, db: Session = Depends(get_db)):
+def authorize_submission(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Issue submission authorization token for an APPROVED application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     try:
         auth = SubmissionAuthorizationService.authorize_submission(db, id)
         return auth
@@ -182,8 +257,16 @@ def authorize_submission(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/applications/{id}/revoke-authorization", response_model=ApplicationResponse)
-def revoke_submission_authorization(id: int, db: Session = Depends(get_db)):
+def revoke_submission_authorization(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Revoke active submission authorization."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     try:
         return SubmissionAuthorizationService.revoke_authorization(db, id)
     except ValueError as e:
@@ -191,8 +274,21 @@ def revoke_submission_authorization(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/applications/{id}/submit")
-def submit_application(id: int, trigger_mock_captcha: bool = Query(False), db: Session = Depends(get_db)):
+def submit_application(
+    id: int,
+    trigger_mock_captcha: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
     """Execute submission engine for authorized application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     try:
         res = SubmissionEngine.execute_submission(db, id, trigger_mock_captcha=trigger_mock_captcha)
         return res
@@ -201,19 +297,35 @@ def submit_application(id: int, trigger_mock_captcha: bool = Query(False), db: S
 
 
 @router.get("/api/applications/{id}/submission", response_model=List[SubmissionRunResponse])
-def get_submission_runs(id: int, db: Session = Depends(get_db)):
+def get_submission_runs(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List submission execution runs for application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     return db.query(SubmissionRun).filter(SubmissionRun.application_id == id).order_by(SubmissionRun.started_at.desc()).all()
 
 
 @router.get("/api/applications/{id}/audit")
-def get_audit_logs(id: int, db: Session = Depends(get_db)):
+def get_audit_logs(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Get raw audit logs for application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     return db.query(ApplicationAuditLog).filter(ApplicationAuditLog.application_id == id).order_by(ApplicationAuditLog.timestamp.desc()).all()
 
 
 @router.get("/api/application-sources", response_model=List[ApplicationSourceConfigurationResponse])
-def get_application_sources(db: Session = Depends(get_db)):
+def get_application_sources(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List all configured application source setups."""
     configs = []
     for adapter in registry.list():
@@ -223,7 +335,7 @@ def get_application_sources(db: Session = Depends(get_db)):
 
 
 @router.get("/api/application-sources/{source}", response_model=ApplicationSourceConfigurationResponse)
-def get_application_source_config(source: str, db: Session = Depends(get_db)):
+def get_application_source_config(source: str, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Get configuration details for a source."""
     adapter = registry.get(source)
     if not adapter:
@@ -232,7 +344,7 @@ def get_application_source_config(source: str, db: Session = Depends(get_db)):
 
 
 @router.post("/api/application-sources/{source}/test")
-def test_application_source(source: str, db: Session = Depends(get_db)):
+def test_application_source(source: str, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Perform health check / test capabilities on adapter."""
     adapter = registry.get(source)
     if not adapter:
@@ -242,15 +354,19 @@ def test_application_source(source: str, db: Session = Depends(get_db)):
 
 
 @router.post("/api/applications/{id}/prepare", response_model=ApplicationQueueResponse)
-def prepare_application_run(id: int, db: Session = Depends(get_db)):
+def prepare_application_run(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Prepares/Enqueues an approved application into ApplicationQueue."""
-    app_rec = db.query(Application).filter(Application.id == id).first()
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
     if not app_rec:
         raise HTTPException(status_code=404, detail=f"Application {id} not found.")
-        
+
     if app_rec.status not in ["APPROVED", "SUBMISSION_AUTHORIZED", "SUBMITTING", "PREPARING"]:
         raise HTTPException(status_code=400, detail="Only APPROVED or PREPARING applications can be queued.")
-        
+
     queue_rec = db.query(ApplicationQueue).filter(ApplicationQueue.application_id == id).first()
     if not queue_rec:
         queue_rec = ApplicationQueue(
@@ -268,14 +384,22 @@ def prepare_application_run(id: int, db: Session = Depends(get_db)):
         queue_rec.completed_at = None
         db.commit()
         db.refresh(queue_rec)
-        
+
     ApplicationAuditService.log_event(db, id, "APPLICATION_QUEUED", "SYSTEM", {"priority": queue_rec.priority})
     return queue_rec
 
 
 @router.post("/api/applications/{id}/execute")
-def execute_application_run(id: int, db: Session = Depends(get_db)):
+def execute_application_run(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Run worker execution synchronously/immediately on the queued application (dry_run = False)."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     res = ApplicationExecutionWorker.execute_queued_application(db, id, dry_run=False)
     if not res.get("success"):
         raise HTTPException(status_code=400, detail=res.get("error") or res.get("reason"))
@@ -283,8 +407,16 @@ def execute_application_run(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/applications/{id}/dry-run")
-def dry_run_application_run(id: int, db: Session = Depends(get_db)):
+def dry_run_application_run(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Run worker execution immediately on the queued application (dry_run = True)."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     res = ApplicationExecutionWorker.execute_queued_application(db, id, dry_run=True)
     if not res.get("success"):
         raise HTTPException(status_code=400, detail=res.get("error") or res.get("reason"))
@@ -292,66 +424,78 @@ def dry_run_application_run(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/applications/{id}/resume")
-def resume_application_run(id: int, db: Session = Depends(get_db)):
+def resume_application_run(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Resolves the active HumanInterventionEvent, marks intervention resolved, and resumes run."""
-    app_rec = db.query(Application).filter(Application.id == id).first()
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
     if not app_rec:
         raise HTTPException(status_code=404, detail=f"Application {id} not found.")
-        
+
     if app_rec.status != "PAUSED":
         raise HTTPException(status_code=400, detail=f"Cannot resume application in status '{app_rec.status}'.")
-        
+
     active_event = db.query(HumanInterventionEvent).filter(
         HumanInterventionEvent.application_id == id,
         HumanInterventionEvent.resolution == None
     ).first()
-    
+
     if active_event:
         active_event.resolved_at = datetime.now()
         active_event.resolution = "RESOLVED"
         active_event.notes = "Manually resolved by user."
         db.commit()
-        
+
     app_rec.status = "APPROVED"
     db.commit()
-    
+
     ApplicationAuditService.log_event(db, id, "APPLICATION_RESUMED", "SYSTEM", {})
     return {"success": True, "message": "Intervention resolved. Status reset to APPROVED."}
 
 
 @router.post("/api/applications/{id}/cancel")
-def cancel_application_run(id: int, db: Session = Depends(get_db)):
+def cancel_application_run(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Removes application from queue, transitions status to CHANGES_REQUESTED."""
-    app_rec = db.query(Application).filter(Application.id == id).first()
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
     if not app_rec:
         raise HTTPException(status_code=404, detail=f"Application {id} not found.")
-        
+
     queue_rec = db.query(ApplicationQueue).filter(ApplicationQueue.application_id == id).first()
     if queue_rec:
         queue_rec.status = "CANCELLED"
         queue_rec.completed_at = datetime.now()
         db.commit()
-        
+
     app_rec.status = "CHANGES_REQUESTED"
     db.commit()
-    
+
     ApplicationAuditService.log_event(db, id, "APPLICATION_CANCELLED", "SYSTEM", {})
     return {"success": True, "message": "Application execution run cancelled."}
 
 
 @router.get("/api/applications/{id}/action-plan")
-def get_application_action_plan(id: int, db: Session = Depends(get_db)):
+def get_application_action_plan(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Previews action plan using profile field mapping without submitting."""
-    app_rec = db.query(Application).filter(Application.id == id).first()
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
     if not app_rec:
         raise HTTPException(status_code=404, detail=f"Application {id} not found.")
-        
+
     from app.services.automation.profile_field_mapper import ProfileFieldMapper
-    
+
     default_resume = db.query(Resume).filter(Resume.id == app_rec.selected_resume_id).first()
     if not default_resume:
         default_resume = db.query(Resume).filter(Resume.profile_id == app_rec.profile_id).first()
-        
+
     preview_fields = ["EMAIL", "FULL_NAME", "PHONE", "RESUME", "WEBSITE"]
     plan_list = []
     for idx, f in enumerate(preview_fields):
@@ -367,16 +511,32 @@ def get_application_action_plan(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/api/applications/{id}/interventions", response_model=List[HumanInterventionEventResponse])
-def get_application_interventions(id: int, db: Session = Depends(get_db)):
+def get_application_interventions(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Returns list of historical HumanInterventionEvent records for the application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     return db.query(HumanInterventionEvent).filter(HumanInterventionEvent.application_id == id).order_by(HumanInterventionEvent.created_at.desc()).all()
 
 
 @router.get("/api/applications/{id}/browser-state", response_model=BrowserStateResponse)
-def get_application_browser_state(id: int, db: Session = Depends(get_db)):
+def get_application_browser_state(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Returns current screenshot list, url, title, state."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
     from app.models.automation import AutomationRun
-    run = db.query(AutomationRun).filter(AutomationRun.profile_id == 1).order_by(AutomationRun.started_at.desc()).first()
+    run = db.query(AutomationRun).filter(AutomationRun.profile_id == profile.id).order_by(AutomationRun.started_at.desc()).first()
     if not run:
         return {
             "application_id": id,

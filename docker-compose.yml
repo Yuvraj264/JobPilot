@@ -1,22 +1,55 @@
+version: '3.8'
+
 services:
-  db:
+  postgres:
     image: postgres:15-alpine
-    container_name: jobpilot_postgres
-    restart: always
+    container_name: jobpilot_db
     environment:
-      POSTGRES_USER: jobpilot
-      POSTGRES_PASSWORD: jobpilot_dev_password
-      POSTGRES_DB: jobpilot_db
+      POSTGRES_USER: jobpilot_prod_user
+      POSTGRES_PASSWORD: strong_password_change_me
+      POSTGRES_DB: jobpilot_production
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jobpilot -d jobpilot_db"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U jobpilot_prod_user -d jobpilot_production"]
+      interval: 10s
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backend
+    container_name: jobpilot_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - DEBUG=False
+      - DATABASE_URL=postgresql://jobpilot_prod_user:strong_password_change_me@postgres:5432/jobpilot_production
+      - RESUME_STORAGE_PATH=/app/storage/resumes
+      - SECRET_KEY=production-secret-key-at-least-32-characters-change-me
+      - ALLOW_LOCAL_URLS_FOR_DEV=False
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+    volumes:
+      - shared_storage:/app/storage
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: jobpilot_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:
-    driver: local
+  shared_storage:

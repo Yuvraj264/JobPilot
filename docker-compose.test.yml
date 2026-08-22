@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backend
+    container_name: jobpilot_backend_test
+    environment:
+      - APP_ENV=test
+      - DEBUG=True
+      - DATABASE_URL=sqlite:///:memory:
+      - RESUME_STORAGE_PATH=./storage/test_resumes
+      - ALLOW_LOCAL_URLS_FOR_DEV=True
+      - LOG_LEVEL=DEBUG
+      - LOG_FORMAT=text
+      - SECRET_KEY=test-secret-key-32-characters-long!!!
+      - API_RATE_LIMIT_PER_MINUTE=1000
+    command: ["pytest", "tests/"]

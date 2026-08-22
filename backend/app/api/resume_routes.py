@@ -11,6 +11,8 @@ from app.services.resume_service import ResumeService
 from app.services.resume_processing_service import ResumeProcessingService
 from app.services.consistency_service import ConsistencyService
 from app.services.quality_service import QualityService
+from app.api.auth import get_current_user_id
+from app.config import settings
 from app.schemas.resume import (
     ResumeResponse,
     ResumeParsedDetailResponse,
@@ -27,25 +29,31 @@ async def upload_resume(
     name: Optional[str] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
 ):
     """
     Upload a new resume (PDF or DOCX), save securely, and execute processing pipeline.
     """
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         # Auto-create user profile if missing
         from app.schemas.profile import ProfileCreate
-        profile = ProfileService.create_profile(db, ProfileCreate(full_name="User Candidate", email="candidate@example.com"), user_id=1)
+        profile = ProfileService.create_profile(db, ProfileCreate(full_name="User Candidate", email="candidate@example.com"), user_id=current_user_id)
 
     file_bytes = await file.read()
     filename = file.filename or "resume.pdf"
     display_name = name or os.path.splitext(filename)[0]
 
+    # Enforce safe filenames & path traversal block
+    safe_filename = os.path.basename(filename)
+    if not safe_filename or safe_filename in [".", ".."]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename structure.")
+
     try:
         relative_path, file_type, file_size = StorageService.save_file(
             file_bytes=file_bytes,
-            original_filename=filename,
-            user_id=1,
+            original_filename=safe_filename,
+            user_id=current_user_id,
         )
     except ValueError as val_err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(val_err))
@@ -55,7 +63,7 @@ async def upload_resume(
         db=db,
         profile_id=profile.id,
         name=display_name,
-        original_filename=filename,
+        original_filename=safe_filename,
         file_path=relative_path,
         file_type=file_type,
         file_size=file_size,
@@ -67,18 +75,18 @@ async def upload_resume(
 
 
 @router.get("", response_model=List[ResumeResponse])
-def list_resumes(db: Session = Depends(get_db)):
+def list_resumes(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List all uploaded resumes for the current profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         return []
     return ResumeService.get_resumes_by_profile(db, profile.id)
 
 
 @router.get("/{id}", response_model=ResumeResponse)
-def get_resume(id: int, db: Session = Depends(get_db)):
+def get_resume(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve metadata for a specific resume."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     resume = ResumeService.get_resume_by_id(db, resume_id=id, profile_id=profile.id)
@@ -88,9 +96,9 @@ def get_resume(id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_resume(id: int, db: Session = Depends(get_db)):
+def delete_resume(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Delete resume metadata and underlying storage file."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     deleted = ResumeService.delete_resume(db, resume_id=id, profile_id=profile.id)
@@ -100,9 +108,9 @@ def delete_resume(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{id}/status", response_model=ResumeStatusResponse)
-def get_resume_status(id: int, db: Session = Depends(get_db)):
+def get_resume_status(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Check processing status of a resume."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     resume = ResumeService.get_resume_by_id(db, resume_id=id, profile_id=profile.id)
@@ -112,9 +120,9 @@ def get_resume_status(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{id}/parsed", response_model=ResumeParsedDetailResponse)
-def get_resume_parsed_details(id: int, db: Session = Depends(get_db)):
+def get_resume_parsed_details(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve structured parsed data (skills, education, experiences, projects, certifications)."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     resume = ResumeService.get_resume_by_id(db, resume_id=id, profile_id=profile.id)
@@ -124,9 +132,9 @@ def get_resume_parsed_details(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{id}/quality", response_model=ResumeQualityResponse)
-def get_resume_quality(id: int, db: Session = Depends(get_db)):
+def get_resume_quality(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Run deterministic quality score analysis on a processed resume."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     resume = ResumeService.get_resume_by_id(db, resume_id=id, profile_id=profile.id)
@@ -136,9 +144,9 @@ def get_resume_quality(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{id}/consistency", response_model=ResumeConsistencyResponse)
-def get_resume_consistency(id: int, db: Session = Depends(get_db)):
+def get_resume_consistency(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Compare resume against canonical User Profile to detect skill/education/experience mismatches."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     resume = ResumeService.get_resume_by_id(db, resume_id=id, profile_id=profile.id)
@@ -148,9 +156,9 @@ def get_resume_consistency(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{id}/reprocess", response_model=ResumeResponse)
-def reprocess_resume(id: int, db: Session = Depends(get_db)):
+def reprocess_resume(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Trigger re-running the extraction and section parsing pipeline on an existing resume."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     resume = ResumeService.get_resume_by_id(db, resume_id=id, profile_id=profile.id)
@@ -161,9 +169,9 @@ def reprocess_resume(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{id}/set-default", response_model=ResumeResponse)
-def set_default_resume(id: int, db: Session = Depends(get_db)):
+def set_default_resume(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Set the selected resume as preferred default."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     updated = ResumeService.set_default_resume(db, resume_id=id, profile_id=profile.id)
@@ -173,9 +181,9 @@ def set_default_resume(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{id}/download")
-def download_resume(id: int, db: Session = Depends(get_db)):
+def download_resume(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Securely download resume document file."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
     resume = ResumeService.get_resume_by_id(db, resume_id=id, profile_id=profile.id)
@@ -186,6 +194,12 @@ def download_resume(id: int, db: Session = Depends(get_db)):
         abs_path = StorageService.resolve_path(resume.file_path)
     except ValueError as err:
         raise HTTPException(status_code=403, detail=str(err))
+
+    # Path traversal validation check
+    base_storage = os.path.abspath(settings.RESUME_STORAGE_PATH)
+    resolved_abs = os.path.abspath(abs_path)
+    if not resolved_abs.startswith(base_storage):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Path traversal attempt blocked.")
 
     if not os.path.exists(abs_path):
         raise HTTPException(status_code=404, detail="Physical resume file missing from storage.")

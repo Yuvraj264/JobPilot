@@ -47,32 +47,11 @@ class ApplicationBrowserSession:
         return final_url
 
     def validate_url(self, url: str):
-        parsed = urlparse(url)
-        if parsed.scheme not in ["http", "https"]:
-            raise DomainValidationError(f"Invalid URL scheme: '{parsed.scheme}'. Only HTTP/HTTPS allowed.")
-
-        domain = parsed.netloc.lower()
-        if ":" in domain:
-            domain = domain.split(":")[0]
-
-        # Safety fallback for local synthetic site testing
-        if domain in ["localhost", "127.0.0.1"]:
-            return
-
-        is_allowed = False
-        for allowed in self.allowed_domains:
-            allowed_clean = allowed.lower()
-            if allowed_clean.startswith("*."):
-                suffix = allowed_clean[2:]
-                if domain == suffix or domain.endswith("." + suffix):
-                    is_allowed = True
-                    break
-            elif domain == allowed_clean:
-                is_allowed = True
-                break
-
-        if not is_allowed:
-            raise DomainValidationError(f"Navigation to domain '{domain}' is blocked by allowed domain safety constraints.")
+        from app.services.url_security_service import URLSecurityService
+        try:
+            URLSecurityService.validate_url(url, self.allowed_domains)
+        except ValueError as err:
+            raise DomainValidationError(str(err))
 
     def current_url(self) -> str:
         return self.controller.current_url()

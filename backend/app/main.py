@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database.connection import check_db_connection
+from app.services.logging_config import setup_structured_logging
+
+setup_structured_logging()
 
 from app.api.profile_routes import router as profile_router
 from app.api.resume_routes import router as resume_router
@@ -30,7 +33,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.middleware.rate_limit import RateLimitMiddleware
+app.add_middleware(RateLimitMiddleware)
+
 # Include Routers
+@app.on_event("startup")
+def startup_validation():
+    # 1. Validate configuration settings
+    from app.services.config_validator import ConfigurationValidator
+    ConfigurationValidator.validate_settings(settings)
+
+    # 2. Run database crash recovery checks
+    from app.database.connection import SessionLocal
+    from app.services.orchestration.orchestrator import JobPilotOrchestrator
+    db = SessionLocal()
+    try:
+        JobPilotOrchestrator.recover_interrupted_runs(db)
+    finally:
+        db.close()
+
+    # 3. Register signal handlers for graceful shutdown
+    import signal
+    import sys
+    import logging
+    import threading
+    logger = logging.getLogger("app.main")
+
+    def signal_handler(signum, frame):
+        logger.info(f"Received shutdown signal ({signum}). Performing graceful cleanup...")
+        sys.exit(0)
+
+    if threading.current_thread() is threading.main_thread():
+        try:
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+        except ValueError:
+            pass
+
 app.include_router(profile_router)
 app.include_router(resume_router)
 app.include_router(job_router)
@@ -71,3 +110,80 @@ def health_check():
         "app_name": settings.APP_NAME,
         "environment": settings.APP_ENV,
     }
+
+
+@app.get("/health/live", tags=["Health"])
+def health_live():
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", tags=["Health"])
+def health_ready():
+    db_status = check_db_connection()
+    db_ok = db_status.get("status") == "connected"
+    
+    # Check if storage is writable
+    storage_ok = False
+    try:
+        os.makedirs(settings.RESUME_STORAGE_PATH, exist_ok=True)
+        test_file = os.path.join(settings.RESUME_STORAGE_PATH, ".health_test")
+        with open(test_file, "w") as f:
+            f.write("ready")
+        os.remove(test_file)
+        storage_ok = True
+    except Exception:
+        pass
+        
+    if db_ok and storage_ok:
+        return {"status": "ready"}
+    else:
+        return {
+            "status": "not_ready",
+            "database": "ok" if db_ok else "failed",
+            "storage": "ok" if storage_ok else "failed"
+        }
+
+
+@app.get("/health/database", tags=["Health"])
+def health_database():
+    return check_db_connection()
+
+
+@app.get("/health/browser", tags=["Health"])
+def health_browser():
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            browser.close()
+        return {"status": "healthy", "browser": "playwright_chromium_available"}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+
+
+@app.get("/health/scheduler", tags=["Health"])
+def health_scheduler():
+    # Check if heartbeat file was updated recently (last 2 minutes)
+    hb_file = settings.SCHEDULER_HEARTBEAT_FILE
+    if os.path.exists(hb_file):
+        mtime = os.path.getmtime(hb_file)
+        import time
+        if time.time() - mtime < 120:
+            return {"status": "healthy", "last_heartbeat": mtime}
+    return {"status": "unhealthy", "reason": "No active scheduler heartbeat."}
+
+
+@app.get("/health/sources", tags=["Health"])
+def health_sources():
+    from app.services.automation.adapters.registry import registry
+    adapters = registry.list()
+    statuses = {a.name(): "available" for a in adapters}
+    return {"status": "healthy", "adapters": statuses}
+
+
+@app.get("/api/metrics", tags=["Metrics"])
+def get_metrics():
+    from fastapi.responses import PlainTextResponse
+    from app.services.observability_service import ObservabilityService
+    return PlainTextResponse(content=ObservabilityService.get_metrics_prometheus())
+

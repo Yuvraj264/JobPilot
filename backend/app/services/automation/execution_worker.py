@@ -55,7 +55,7 @@ class ApplicationExecutionWorker:
             # Safe default configuration parameters
             config = ApplicationSourceConfiguration(
                 source_id=source.id,
-                enabled=True if source_name.lower() in ["mock", "generic_career"] else False,
+                enabled=True if source_name.lower() in ["mock", "mock_platform", "generic_career"] else False,
                 mode="HUMAN_ASSISTED",
                 allowed_domains=["localhost", "127.0.0.1"],
                 capabilities={
@@ -187,158 +187,162 @@ class ApplicationExecutionWorker:
         ApplicationAuditService.log_event(db, app.id, "SUBMISSION_STARTED", "SYSTEM", {"run_id": sub_run.id, "adapter": adapter.name(), "dry_run": dry_run})
 
         try:
-            session.start()
-            
-            # Step 9 & 10: Navigate and check redirects/allowed domain allowlist
-            app_url = app.application_url or app.job.application_url or app.job.job_url
-            if not app_url:
-                raise ValueError("Target application URL is empty.")
+            try:
+                session.start()
+                
+                # Step 9 & 10: Navigate and check redirects/allowed domain allowlist
+                app_url = app.application_url or app.job.application_url or app.job.job_url
+                if not app_url:
+                    raise ValueError("Target application URL is empty.")
 
-            logger.info(f"Worker navigating browser session to: {app_url}")
-            session.navigate(app_url)
-            sub_run.state = "PREPARING"
-            auto_run.state = "OPENING"
-            db.commit()
+                logger.info(f"Worker navigating browser session to: {app_url}")
+                session.navigate(app_url)
+                sub_run.state = "PREPARING"
+                auto_run.state = "OPENING"
+                db.commit()
 
-            # Captcha and Login Intervention Check
-            intervention = adapter.detect_intervention(session)
-            if intervention.get("required"):
-                cls._handle_intervention(db, app, queue_rec, sub_run, auto_run, session, intervention.get("type"), intervention.get("reason"))
-                return {"success": False, "status": "PAUSED", "reason": intervention.get("reason")}
+                # Captcha and Login Intervention Check
+                intervention = adapter.detect_intervention(session)
+                if intervention.get("required"):
+                    cls._handle_intervention(db, app, queue_rec, sub_run, auto_run, session, intervention.get("type"), intervention.get("reason"))
+                    return {"success": False, "status": "PAUSED", "reason": intervention.get("reason")}
 
-            # 11. Run Inspection and Preparation
-            auto_run.state = "INSPECTING"
-            db.commit()
-            inspection = adapter.inspect(session)
+                # 11. Run Inspection and Preparation
+                auto_run.state = "INSPECTING"
+                db.commit()
+                inspection = adapter.inspect(session)
 
-            # Check if visual inspector found any CAPTCHA or logins
-            if inspection.get("has_captcha"):
-                cls._handle_intervention(db, app, queue_rec, sub_run, auto_run, session, "CAPTCHA_DETECTED", "CAPTCHA element detected in HTML DOM.")
-                return {"success": False, "status": "PAUSED", "reason": "CAPTCHA challenge detected."}
+                # Check if visual inspector found any CAPTCHA or logins
+                if inspection.get("has_captcha"):
+                    cls._handle_intervention(db, app, queue_rec, sub_run, auto_run, session, "CAPTCHA_DETECTED", "CAPTCHA element detected in HTML DOM.")
+                    return {"success": False, "status": "PAUSED", "reason": "CAPTCHA challenge detected."}
 
-            auto_run.state = "PLANNING"
-            db.commit()
-            
-            # Form field mapping planning
-            default_resume = db.query(Resume).filter(Resume.id == app.selected_resume_id).first()
-            if not default_resume:
-                default_resume = db.query(Resume).filter(Resume.profile_id == app.profile_id).first()
+                auto_run.state = "PLANNING"
+                db.commit()
+                
+                # Form field mapping planning
+                default_resume = db.query(Resume).filter(Resume.id == app.selected_resume_id).first()
+                if not default_resume:
+                    default_resume = db.query(Resume).filter(Resume.profile_id == app.profile_id).first()
 
-            plan = ApplicationActionPlanner.plan_page_actions(
-                inspection, app.profile, default_resume, db=db, automation_run_id=auto_run.id, job_id=app.job_id
-            )
-
-            # Record action logs preview
-            actions = plan.get("actions", [])
-            for act in actions:
-                logger.info(f"Planned action: {act.get('action')} -> {act.get('field_type')}")
-
-            if not plan.get("automatable"):
-                # Missing required fields or low mapping confidence
-                cls._handle_intervention(
-                    db, app, queue_rec, sub_run, auto_run, session, 
-                    "AMBIGUOUS_FIELD", plan.get("pause_reason", "Fields mapping failed.")
+                plan = ApplicationActionPlanner.plan_page_actions(
+                    inspection, app.profile, default_resume, db=db, automation_run_id=auto_run.id, job_id=app.job_id
                 )
-                return {"success": False, "status": "PAUSED", "reason": plan.get("pause_reason")}
 
-            # Execute Field Mapping actions
-            sub_run.state = "FILLING"
-            auto_run.state = "FILLING"
-            db.commit()
+                # Record action logs preview
+                actions = plan.get("actions", [])
+                for act in actions:
+                    logger.info(f"Planned action: {act.get('action')} -> {act.get('field_type')}")
 
-            # 12. Dry Run Mode Logic
-            if dry_run:
-                # Capture screenshots but do not submit
-                shot = session.capture_screenshot(f"dryrun_{app.id}")
-                sub_run.state = "READY"
+                if not plan.get("automatable"):
+                    # Missing required fields or low mapping confidence
+                    cls._handle_intervention(
+                        db, app, queue_rec, sub_run, auto_run, session, 
+                        "AMBIGUOUS_FIELD", plan.get("pause_reason", "Fields mapping failed.")
+                    )
+                    return {"success": False, "status": "PAUSED", "reason": plan.get("pause_reason")}
+
+                # Execute Field Mapping actions
+                sub_run.state = "FILLING"
+                auto_run.state = "FILLING"
+                db.commit()
+
+                # 12. Dry Run Mode Logic
+                if dry_run:
+                    # Capture screenshots but do not submit
+                    shot = session.capture_screenshot(f"dryrun_{app.id}")
+                    sub_run.state = "READY"
+                    sub_run.status = "COMPLETED"
+                    sub_run.completed_at = datetime.now()
+                    sub_run.confirmation = "DRY_RUN_PREVIEW_VERIFIED"
+                    
+                    auto_run.state = "READY_FOR_REVIEW"
+                    auto_run.status = "COMPLETED"
+                    auto_run.completed_at = datetime.now(timezone.utc)
+                    if shot:
+                        auto_run.screenshots = [shot]
+
+                    app.status = "APPROVED"  # Keep in approved state
+                    if queue_rec:
+                        queue_rec.status = "COMPLETED"
+                        queue_rec.completed_at = datetime.now()
+                    db.commit()
+
+                    ApplicationAuditService.log_event(db, app.id, "SUBMISSION_PREVIEW_SUCCESS", "SYSTEM", {"dry_run": True})
+                    return {"success": True, "status": "DRY_RUN_SUCCESS", "actions_planned": len(actions)}
+
+                # 13. Real Execution Mode
+                # Verify approval checks before submission execution
+                if config.mode == "MANUAL" or not config.capabilities.get("submission", False):
+                    cls._handle_intervention(
+                        db, app, queue_rec, sub_run, auto_run, session,
+                        "UNSUPPORTED_FIELD", "Platform does not permit automated submissions. Please complete submission manually."
+                    )
+                    return {"success": False, "status": "PAUSED", "reason": "Automated submission restricted."}
+
+                # Execute fields autofill
+                for act in actions:
+                    res = ApplicationActionExecutor.execute_action(db, auto_run.id, session.controller, act)
+                    if res.get("status") == "SUCCESS":
+                        auto_run.actions_completed += 1
+                    else:
+                        auto_run.actions_failed += 1
+                        cls._handle_intervention(db, app, queue_rec, sub_run, auto_run, session, "UNSUPPORTED_FIELD", res.get("reason", "Field fill action failed."))
+                        return {"success": False, "status": "PAUSED", "reason": "Action executor failed to fill form."}
+
+                # Verify action outputs
+                auto_run.state = "VERIFYING"
+                sub_run.state = "VERIFYING"
+                db.commit()
+
+                # Execute submission
+                sub_res = adapter.submit(session)
+                if not sub_res.get("success"):
+                    cls._handle_intervention(
+                        db, app, queue_rec, sub_run, auto_run, session, 
+                        "SUBMISSION_UNVERIFIED", sub_res.get("error", "Verification failure.")
+                    )
+                    return {"success": False, "status": "PAUSED", "reason": "Submission verification failed."}
+
+                # Verify Success
+                verified = adapter.verify_submission(session, sub_res)
+                if not verified:
+                    cls._handle_intervention(
+                        db, app, queue_rec, sub_run, auto_run, session,
+                        "SUBMISSION_UNVERIFIED", "Confirmation page or success text could not be verified."
+                    )
+                    return {"success": False, "status": "PAUSED", "reason": "Success verification failed."}
+
+                # Ingest success details
+                ApplicationSnapshotService.create_snapshot(db, app.id)
+
+                sub_run.state = "SUBMITTED"
                 sub_run.status = "COMPLETED"
                 sub_run.completed_at = datetime.now()
-                sub_run.confirmation = "DRY_RUN_PREVIEW_VERIFIED"
-                
-                auto_run.state = "READY_FOR_REVIEW"
+                sub_run.submission_id = sub_res.get("submission_id") or f"SUB-{app.id}-{datetime.now().strftime('%m%d%H%M')}"
+                sub_run.confirmation = sub_res.get("confirmation") or "Generic Success Confirmation"
+
+                auto_run.state = "SUBMITTED"
                 auto_run.status = "COMPLETED"
                 auto_run.completed_at = datetime.now(timezone.utc)
-                if shot:
-                    auto_run.screenshots = [shot]
 
-                app.status = "APPROVED"  # Keep in approved state
+                app.status = "SUBMITTED"
+                app.submitted_at = datetime.now()
+
                 if queue_rec:
                     queue_rec.status = "COMPLETED"
                     queue_rec.completed_at = datetime.now()
                 db.commit()
 
-                ApplicationAuditService.log_event(db, app.id, "SUBMISSION_PREVIEW_SUCCESS", "SYSTEM", {"dry_run": True})
-                session.stop()
-                return {"success": True, "status": "DRY_RUN_SUCCESS", "actions_planned": len(actions)}
+                ApplicationAuditService.log_event(db, app.id, "SUBMISSION_VERIFIED", "SYSTEM", {"submission_id": sub_run.submission_id})
+                ApplicationAuditService.log_event(db, app.id, "APPLICATION_SUBMITTED", "SYSTEM", {"status": "SUBMITTED"})
 
-            # 13. Real Execution Mode
-            # Verify approval checks before submission execution
-            if config.mode == "MANUAL" or not config.capabilities.get("submission", False):
-                cls._handle_intervention(
-                    db, app, queue_rec, sub_run, auto_run, session,
-                    "UNSUPPORTED_FIELD", "Platform does not permit automated submissions. Please complete submission manually."
-                )
-                return {"success": False, "status": "PAUSED", "reason": "Automated submission restricted."}
-
-            # Execute fields autofill
-            for act in actions:
-                res = ApplicationActionExecutor.execute_action(db, auto_run.id, session.controller, act)
-                if res.get("status") == "SUCCESS":
-                    auto_run.actions_completed += 1
-                else:
-                    auto_run.actions_failed += 1
-                    cls._handle_intervention(db, app, queue_rec, sub_run, auto_run, session, "UNSUPPORTED_FIELD", res.get("reason", "Field fill action failed."))
-                    return {"success": False, "status": "PAUSED", "reason": "Action executor failed to fill form."}
-
-            # Verify action outputs
-            auto_run.state = "VERIFYING"
-            sub_run.state = "VERIFYING"
-            db.commit()
-
-            # Execute submission
-            sub_res = adapter.submit(session)
-            if not sub_res.get("success"):
-                cls._handle_intervention(
-                    db, app, queue_rec, sub_run, auto_run, session, 
-                    "SUBMISSION_UNVERIFIED", sub_res.get("error", "Verification failure.")
-                )
-                return {"success": False, "status": "PAUSED", "reason": "Submission verification failed."}
-
-            # Verify Success
-            verified = adapter.verify_submission(session, sub_res)
-            if not verified:
-                cls._handle_intervention(
-                    db, app, queue_rec, sub_run, auto_run, session,
-                    "SUBMISSION_UNVERIFIED", "Confirmation page or success text could not be verified."
-                )
-                return {"success": False, "status": "PAUSED", "reason": "Success verification failed."}
-
-            # Ingest success details
-            ApplicationSnapshotService.create_snapshot(db, app.id)
-
-            sub_run.state = "SUBMITTED"
-            sub_run.status = "COMPLETED"
-            sub_run.completed_at = datetime.now()
-            sub_run.submission_id = sub_res.get("submission_id") or f"SUB-{app.id}-{datetime.now().strftime('%m%d%H%M')}"
-            sub_run.confirmation = sub_res.get("confirmation") or "Generic Success Confirmation"
-
-            auto_run.state = "SUBMITTED"
-            auto_run.status = "COMPLETED"
-            auto_run.completed_at = datetime.now(timezone.utc)
-
-            app.status = "SUBMITTED"
-            app.submitted_at = datetime.now()
-
-            if queue_rec:
-                queue_rec.status = "COMPLETED"
-                queue_rec.completed_at = datetime.now()
-            db.commit()
-
-            ApplicationAuditService.log_event(db, app.id, "SUBMISSION_VERIFIED", "SYSTEM", {"submission_id": sub_run.submission_id})
-            ApplicationAuditService.log_event(db, app.id, "APPLICATION_SUBMITTED", "SYSTEM", {"status": "SUBMITTED"})
-
-            session.stop()
-            return {"success": True, "status": "SUBMITTED", "submission_id": sub_run.submission_id}
+                return {"success": True, "status": "SUBMITTED", "submission_id": sub_run.submission_id}
+            finally:
+                try:
+                    session.stop()
+                except Exception:
+                    pass
 
         except DomainValidationError as dve:
             cls._handle_intervention(db, app, queue_rec, sub_run, auto_run, session, "DOMAIN_CHANGE", str(dve))
@@ -364,8 +368,6 @@ class ApplicationExecutionWorker:
             db.commit()
 
             ApplicationAuditService.log_event(db, app.id, "EXECUTION_FAILED", "SYSTEM", {"error": str(e)})
-            try: session.stop()
-            except Exception: pass
             return {"success": False, "error": str(e)}
 
     @staticmethod

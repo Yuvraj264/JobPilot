@@ -33,7 +33,7 @@ def test_security_a_submit_without_approval(db_session):
     db_session.add(app)
     db_session.commit()
 
-    with pytest.raises(ValueError, match="SUBMISSION BLOCKED BY SECURITY CONTROL"):
+    with pytest.raises(ValueError, match="SECURITY CONTROL: Application status"):
         SubmissionEngine.execute_submission(db_session, app.id)
 
 
@@ -110,6 +110,11 @@ def test_security_f_duplicate_submission_blocked(db_session):
     """
     Test F (Requirement 32): Call submit twice after successful submission (idempotency) -> Blocked.
     """
+    from app.services.automation.execution_worker import ApplicationExecutionWorker
+    config = ApplicationExecutionWorker.get_or_create_source_config(db_session, "mock_platform")
+    config.enabled = True
+    db_session.commit()
+
     profile = seed_sample_profile(db_session, user_id=1)
     job = Job(title="QA Engineer F", company_name="Security Corp F", application_url="http://localhost:8000/mock/apply/5")
     db_session.add(job)
@@ -129,3 +134,99 @@ def test_security_f_duplicate_submission_blocked(db_session):
 
     with pytest.raises(ValueError, match="IDEMPOTENCY CONSTRAINT"):
         SubmissionEngine.execute_submission(db_session, app.id)
+
+
+def test_ssrf_protection_service():
+    from app.services.url_security_service import URLSecurityService
+    from app.config import settings
+
+    # Test allowed public domain
+    assert URLSecurityService.validate_url("https://greenhouse.io", ["greenhouse.io"]) is True
+
+    # Test domain not in allowlist
+    with pytest.raises(ValueError, match="not allowed"):
+        URLSecurityService.validate_url("https://google.com", ["greenhouse.io"])
+
+    # Temporarily disable dev local allowance to test production-style checks
+    orig_allow = settings.ALLOW_LOCAL_URLS_FOR_DEV
+    settings.ALLOW_LOCAL_URLS_FOR_DEV = False
+    try:
+        # Test loopback IP block
+        with pytest.raises(ValueError, match="loopback IP"):
+            URLSecurityService.validate_url("http://127.0.0.1")
+
+        # Test private IP blocks
+        with pytest.raises(ValueError, match="private network IP"):
+            URLSecurityService.validate_url("http://192.168.1.50")
+
+        # Test metadata IP block
+        with pytest.raises(ValueError, match="metadata endpoint"):
+            URLSecurityService.validate_url("http://169.254.169.254")
+    finally:
+        settings.ALLOW_LOCAL_URLS_FOR_DEV = orig_allow
+
+
+def test_api_rate_limiting_middleware():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.config import settings
+
+    client = TestClient(app)
+    orig_limit = settings.API_RATE_LIMIT_PER_MINUTE
+    # Set limit to 2 for quick testing
+    settings.API_RATE_LIMIT_PER_MINUTE = 2
+    try:
+        # First request
+        res1 = client.get("/api/applications", headers={"X-User-Id": "1", "X-Test-Rate-Limit": "true"})
+        assert res1.status_code != 429
+
+        # Second request
+        res2 = client.get("/api/applications", headers={"X-User-Id": "1", "X-Test-Rate-Limit": "true"})
+        assert res2.status_code != 429
+
+        # Third request (exceeds limit of 2)
+        res3 = client.get("/api/applications", headers={"X-User-Id": "1", "X-Test-Rate-Limit": "true"})
+        assert res3.status_code == 429
+        assert res3.json()["error_code"] == "RATE_LIMIT_EXCEEDED"
+    finally:
+        settings.API_RATE_LIMIT_PER_MINUTE = orig_limit
+
+
+def test_idor_api_authorization_controls(db_session):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+
+    # Pre-create users in DB if they do not exist
+    from app.models.profile import User
+    u1 = db_session.query(User).filter(User.id == 999100).first()
+    if not u1:
+        u1 = User(id=999100, email="user999100@example.com")
+        db_session.add(u1)
+    
+    u2 = db_session.query(User).filter(User.id == 999200).first()
+    if not u2:
+        u2 = User(id=999200, email="user999200@example.com")
+        db_session.add(u2)
+        
+    db_session.commit()
+
+    # 1. Create a resume for User 999100
+    res_upload = client.post(
+        "/api/resumes",
+        data={"name": "User 1 Resume"},
+        files={"file": ("resume.pdf", b"%PDF-1.4...", "application/pdf")},
+        headers={"X-User-Id": "999100"}
+    )
+    assert res_upload.status_code == 201
+    resume_id = res_upload.json()["id"]
+
+    # 2. Access the resume as User 999100 -> Success
+    get_res1 = client.get(f"/api/resumes/{resume_id}", headers={"X-User-Id": "999100"})
+    assert get_res1.status_code == 200
+
+    # 3. Access the resume as User 999200 -> 404 Not Found (IDOR protected)
+    get_res2 = client.get(f"/api/resumes/{resume_id}", headers={"X-User-Id": "999200"})
+    assert get_res2.status_code == 404
+

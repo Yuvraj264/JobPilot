@@ -8,7 +8,7 @@ from app.models.profile import UserProfile
 from app.models.resume import Resume
 from app.models.job import Job, JobSource
 from app.models.matching import JobMatch
-from app.models.application import Application, ApplicationQueue, SubmissionAuthorization
+from app.models.application import Application, ApplicationQueue, SubmissionAuthorization, SubmissionRun
 from app.models.orchestration import OrchestrationRun, AutomationConfiguration
 from app.services.job_discovery_service import JobDiscoveryService
 from app.services.job_matching_service import JobMatchingService
@@ -82,6 +82,59 @@ class JobPilotOrchestrator:
             run.completed_at = datetime.now()
             db.commit()
             logger.info(f"Orchestration run {run_id} cancelled by user request.")
+
+    @classmethod
+    def recover_interrupted_runs(cls, db: Session):
+        """
+        Scans database upon startup/initialization to transition stuck active runs
+        (e.g., discovery runs, orchestration runs, submission runs, applications status)
+        that are left in 'RUNNING' or 'SUBMITTING' state to 'FAILED' / 'SUBMISSION_UNVERIFIED'
+        after a crash or sudden reboot.
+        """
+        logger.info("Orchestrator running database crash recovery checks...")
+        try:
+            from app.models.job import JobDiscoveryRun
+            # 1. Recover stuck Orchestration Runs
+            stuck_orch_runs = db.query(OrchestrationRun).filter(OrchestrationRun.status == "RUNNING").all()
+            for r in stuck_orch_runs:
+                r.status = "FAILED"
+                r.completed_at = datetime.now()
+                r.error_message = "Interrupted by system shutdown or worker process reboot."
+                logger.info(f"Recovered stuck OrchestrationRun {r.id}")
+
+            # 2. Recover stuck Submission Runs
+            stuck_sub_runs = db.query(SubmissionRun).filter(SubmissionRun.status == "RUNNING").all()
+            for sr in stuck_sub_runs:
+                sr.status = "FAILED"
+                sr.state = "SUBMISSION_UNVERIFIED"
+                sr.completed_at = datetime.now()
+                sr.error_message = "Worker process interrupted during execution run."
+                logger.info(f"Recovered stuck SubmissionRun {sr.id}")
+
+            # 3. Recover stuck Applications in SUBMITTING
+            stuck_apps = db.query(Application).filter(Application.status == "SUBMITTING").all()
+            for app in stuck_apps:
+                app.status = "FAILED"
+                logger.info(f"Recovered stuck Application {app.id}")
+
+            # 4. Recover stuck queues
+            stuck_queues = db.query(ApplicationQueue).filter(ApplicationQueue.status == "RUNNING").all()
+            for q in stuck_queues:
+                q.status = "FAILED"
+                q.completed_at = datetime.now()
+                logger.info(f"Recovered stuck ApplicationQueue {q.id}")
+
+            # 5. Recover stuck JobDiscovery runs
+            stuck_dis_runs = db.query(JobDiscoveryRun).filter(JobDiscoveryRun.status == "RUNNING").all()
+            for dr in stuck_dis_runs:
+                dr.status = "FAILED"
+                dr.completed_at = datetime.now()
+                logger.info(f"Recovered stuck JobDiscoveryRun {dr.id}")
+
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error during orchestrator crash recovery: {e}")
+            db.rollback()
 
     @classmethod
     def run_pipeline(

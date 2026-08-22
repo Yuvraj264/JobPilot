@@ -1,0 +1,60 @@
+name: JobPilot CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio httpx playwright
+
+      - name: Install Playwright Browsers
+        run: playwright install chromium
+
+      - name: Run Backend Tests
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite:///:memory:
+          SECRET_KEY: test-secret-key-32-characters-long!!!
+          ALLOW_LOCAL_URLS_FOR_DEV: True
+        run: |
+          PYTHONPATH=backend:browser-agent pytest tests/
+
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.backend
+          push: false
+          tags: jobpilot/backend:latest
+
+      - name: Build Frontend Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.frontend
+          push: false
+          tags: jobpilot/frontend:latest
