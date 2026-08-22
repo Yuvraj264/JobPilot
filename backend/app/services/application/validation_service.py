@@ -66,7 +66,7 @@ class ApplicationValidationService:
             questions = db.query(ApplicationQuestion).filter(ApplicationQuestion.job_id == job.id).all()
             for q in questions:
                 ans = db.query(ApplicationAnswer).filter(ApplicationAnswer.question_id == q.id).first()
-                if q.is_required and not ans:
+                if q.required and not ans:
                     blocking.append(f"BLOCKING: Required screening question '{q.question_text[:40]}...' is unanswered.")
                 elif ans and ans.answer_status in ["NEEDS_REVIEW", "INSUFFICIENT_INFORMATION"]:
                     blocking.append(f"BLOCKING: Screening question '{q.question_text[:40]}...' requires human review.")

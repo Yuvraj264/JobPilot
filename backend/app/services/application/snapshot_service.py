@@ -79,8 +79,8 @@ class ApplicationSnapshotService:
                         "question_id": q.id,
                         "question_text": q.question_text,
                         "answer_text": ans.answer_text,
-                        "answer_source": ans.answer_source,
-                        "confidence_score": ans.confidence_score
+                        "answer_source": q.answer_source,
+                        "confidence_score": ans.confidence
                     })
 
         snap = ApplicationSnapshot(

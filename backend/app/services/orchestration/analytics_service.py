@@ -28,8 +28,8 @@ class AnalyticsService:
 
         # Funnel stage counts
         total_discovered = db.query(Job).count()
-        total_eligible = db.query(JobMatch).filter(JobMatch.profile_id == profile_id, JobMatch.match_score >= 70).count()
-        total_high_match = db.query(JobMatch).filter(JobMatch.profile_id == profile_id, JobMatch.match_score >= 80).count()
+        total_eligible = db.query(JobMatch).filter(JobMatch.profile_id == profile_id, JobMatch.overall_score >= 70).count()
+        total_high_match = db.query(JobMatch).filter(JobMatch.profile_id == profile_id, JobMatch.overall_score >= 80).count()
         total_prepared = db.query(Application).filter(Application.profile_id == profile_id).count()
         total_approved = db.query(Application).filter(Application.profile_id == profile_id, Application.status.in_(["APPROVED", "SUBMISSION_AUTHORIZED", "SUBMITTED"])).count()
         total_submitted = db.query(Application).filter(Application.profile_id == profile_id, Application.status == "SUBMITTED").count()
@@ -127,7 +127,7 @@ class AnalyticsService:
         }
 
         for m in matches:
-            score = m.match_score or 0.0
+            score = m.overall_score or 0.0
             if score >= 90:
                 intervals["90-100"] += 1
             elif score >= 80:

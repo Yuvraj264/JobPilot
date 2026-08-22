@@ -193,11 +193,10 @@ def seed_demo_data(db: Session) -> UserProfile:
     db.commit()
 
     # Enable mock configs
-    ApplicationExecutionWorker.get_or_create_source_config(db, "mock_platform")
-    ApplicationExecutionWorker.get_or_create_source_config(db, "company_career")
-    ApplicationExecutionWorker.get_or_create_source_config(db, "greenhouse")
-    ApplicationExecutionWorker.get_or_create_source_config(db, "lever")
-    ApplicationExecutionWorker.get_or_create_source_config(db, "linkedin")
+    for name in ["mock_platform", "company_career", "greenhouse", "lever", "linkedin"]:
+        cfg = ApplicationExecutionWorker.get_or_create_source_config(db, name)
+        cfg.enabled = True
+    db.commit()
 
     # 10. Add Jobs
     # Job 1: High Match (92%)
