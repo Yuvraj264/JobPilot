@@ -116,4 +116,22 @@ JobPilot is an AI-assisted job application automation platform. Its lifecycle fl
 6. **Analytics Funnel Compilation & Health Checks**:
    - Analytics compilation calculates funnel statistics (discovered -> matched -> selected -> prepared -> submitted -> failed), failure breakdown classifications, and visual browser status checks.
 
+---
 
+## Phase 15 Flow: Real-World Validation, Reliability Testing & Intelligent Optimization
+
+1. **Labor Market & Career Insights Ingestion**:
+   - Discovered jobs are aggregated by title, required skills, and locations.
+   - User profile skills are compared against overall requirements to compute requested skills and identify skill gaps (missing in profile).
+2. **Intelligent Profile Optimization Recommendations**:
+   - `OptimizationEngine` checks pipeline errors (failures, timeouts), low keyword coverage on tailored resumes, and screening questions with `INSUFFICIENT_INFORMATION` answers.
+   - Generates profile enhancement suggestions to improve candidate matching scores and decrease human interventions.
+3. **Outcome & Feedback Quality Loop**:
+   - Users manually record ratings (user, resume, match, answer) and log outcomes (recruiter response, interview, assessment, offer, rejection, withdrawal).
+   - Rating data helps user tune config weights, and outcome tracking updates application statuses in the database.
+4. **Validation Benchmarking**:
+   - Golden datasets evaluate the platform:
+     - Matching Precision/Recall Calibration.
+     - Resume Factual Integrity (asserting 0 fabricated claims).
+     - Screening Answer Grounding (adversarial queries blocked safely).
+     - Form Automation Field Mapping and Duplicate URL Prevention.

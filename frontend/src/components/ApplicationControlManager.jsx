@@ -19,6 +19,16 @@ export default function ApplicationControlManager() {
   const [interventions, setInterventions] = useState([])
   const [executing, setExecuting] = useState(false)
 
+  // Feedback & Outcome States
+  const [outcome, setOutcome] = useState('')
+  const [userRating, setUserRating] = useState(5)
+  const [resumeRating, setResumeRating] = useState(5)
+  const [matchRating, setMatchRating] = useState(5)
+  const [answerRating, setAnswerRating] = useState(5)
+  const [feedbackNotes, setFeedbackNotes] = useState('')
+  const [submittingFeedback, setSubmittingFeedback] = useState(false)
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false)
+
   const loadData = async () => {
     setLoading(true)
     try {
@@ -61,6 +71,38 @@ export default function ApplicationControlManager() {
     }
   }
 
+  const handleSubmitFeedback = async (appId) => {
+    setSubmittingFeedback(true)
+    setFeedbackSuccess(false)
+    try {
+      const res = await fetch(`${API_BASE}/applications/${appId}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outcome: outcome || null,
+          user_rating: parseInt(userRating),
+          resume_rating: parseInt(resumeRating),
+          match_rating: parseInt(matchRating),
+          answer_rating: parseInt(answerRating),
+          notes: feedbackNotes || null
+        })
+      })
+      if (res.ok) {
+        setFeedbackSuccess(true)
+        setMessage('Application feedback and outcome successfully updated!')
+        loadData()
+      } else {
+        const err = await res.json()
+        setMessage(`Failed to submit feedback: ${err.detail || 'unknown error'}`)
+      }
+    } catch (err) {
+      console.error(err)
+      setMessage('Network error submitting feedback.')
+    } finally {
+      setSubmittingFeedback(false)
+    }
+  }
+
   const handleSelectApp = async (app) => {
     setSelectedApp(app)
     setUserConfirmed(false)
@@ -68,6 +110,7 @@ export default function ApplicationControlManager() {
     setActionPlan([])
     setBrowserState(null)
     setInterventions([])
+    setFeedbackSuccess(false)
     await loadAppDetails(app.id)
   }
 
@@ -91,6 +134,29 @@ export default function ApplicationControlManager() {
       }
       if (stateRes.ok) setBrowserState(await stateRes.json())
       if (interRes.ok) setInterventions(await interRes.json())
+
+      // Fetch feedback if exists
+      try {
+        const feedRes = await fetch(`${API_BASE}/applications/${appId}/feedback`)
+        if (feedRes.ok) {
+          const feedData = await feedRes.json()
+          setOutcome(feedData.outcome || '')
+          setUserRating(feedData.user_rating || 5)
+          setResumeRating(feedData.resume_rating || 5)
+          setMatchRating(feedData.match_rating || 5)
+          setAnswerRating(feedData.answer_rating || 5)
+          setFeedbackNotes(feedData.notes || '')
+        } else {
+          setOutcome('')
+          setUserRating(5)
+          setResumeRating(5)
+          setMatchRating(5)
+          setAnswerRating(5)
+          setFeedbackNotes('')
+        }
+      } catch (err) {
+        // Safe fallback
+      }
     } catch (err) {
       console.error('Failed to load application details:', err)
     }
@@ -488,7 +554,7 @@ export default function ApplicationControlManager() {
 
           {/* Event Timeline */}
           <h4 style={{ color: '#2c3e50', fontSize: '1.1rem', margin: '1.2rem 0 0.6rem 0' }}>Application Event Timeline</h4>
-          <div style={{ background: '#fff', padding: '1rem', borderRadius: '6px', border: '1px solid #e4e7ed', maxHeight: '150px', overflowY: 'auto' }}>
+          <div style={{ background: '#fff', padding: '1rem', borderRadius: '6px', border: '1px solid #e4e7ed', maxHeight: '150px', overflowY: 'auto', marginBottom: '1.5rem' }}>
             {timeline.length === 0 ? (
               <p style={{ color: '#909399', margin: 0 }}>No timeline events recorded.</p>
             ) : (
@@ -500,6 +566,117 @@ export default function ApplicationControlManager() {
                 ))}
               </ul>
             )}
+          </div>
+
+          {/* Outcome & Quality Feedback Form */}
+          <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+            <h4 style={{ margin: '0 0 0.8rem 0', color: '#0f172a', fontSize: '1rem' }}>📈 Manual Outcome Tracking & Quality Feedback</h4>
+            <p style={{ margin: '0 0 1rem 0', color: '#64748b', fontSize: '0.8rem' }}>
+              Track recruiter responses, interviews, or record ratings to optimize future application tailoring.
+            </p>
+            
+            <form onSubmit={(e) => { e.preventDefault(); handleSubmitFeedback(selectedApp.id); }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.25rem' }}>Application Outcome</label>
+                  <select
+                    value={outcome}
+                    onChange={(e) => setOutcome(e.target.value)}
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                  >
+                    <option value="">Select current outcome...</option>
+                    <option value="recruiter_response">Recruiter Response</option>
+                    <option value="interview">Interview Scheduled</option>
+                    <option value="assessment">Technical Assessment</option>
+                    <option value="offer">Job Offer</option>
+                    <option value="rejection">Rejection</option>
+                    <option value="withdrawal">Withdrawn</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.25rem' }}>General User Rating (1-5)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={userRating}
+                    onChange={(e) => setUserRating(e.target.value)}
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.25rem' }}>Resume Tailor Rating</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={resumeRating}
+                    onChange={(e) => setResumeRating(e.target.value)}
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.25rem' }}>Match Score Rating</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={matchRating}
+                    onChange={(e) => setMatchRating(e.target.value)}
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.25rem' }}>Answer Quality Rating</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={answerRating}
+                    onChange={(e) => setAnswerRating(e.target.value)}
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.25rem' }}>Feedback Notes</label>
+                <textarea
+                  rows="2"
+                  value={feedbackNotes}
+                  onChange={(e) => setFeedbackNotes(e.target.value)}
+                  placeholder="Enter details on recruiter outreach, notes from interviews, or tailoring suggestions..."
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingFeedback}
+                style={{
+                  padding: '0.5rem 1.2rem',
+                  background: '#10b981',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem'
+                }}
+              >
+                {submittingFeedback ? 'Saving...' : 'Submit Feedback & Outcome'}
+              </button>
+
+              {feedbackSuccess && (
+                <span style={{ marginLeft: '1rem', color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  ✓ Feedback Saved Successfully!
+                </span>
+              )}
+            </form>
           </div>
         </div>
       )}

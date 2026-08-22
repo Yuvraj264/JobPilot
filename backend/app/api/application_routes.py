@@ -22,6 +22,7 @@ from app.models.application import (
     ApplicationSourceConfiguration,
     HumanInterventionEvent,
     ApplicationQueue,
+    ApplicationFeedback,
 )
 from app.schemas.application import (
     ApplicationCreate,
@@ -37,6 +38,11 @@ from app.schemas.application import (
     HumanInterventionEventResponse,
     ApplicationQueueResponse,
     BrowserStateResponse,
+)
+from app.schemas.feedback import (
+    ApplicationFeedbackCreate,
+    ApplicationFeedbackResponse,
+    ApplicationOutcomeUpdate,
 )
 from app.services.automation.adapters.registry import registry
 from app.services.automation.execution_worker import ApplicationExecutionWorker
@@ -552,3 +558,104 @@ def get_application_browser_state(id: int, db: Session = Depends(get_db), curren
         "screenshots": run.screenshots or [],
         "state": run.state
     }
+
+
+@router.post("/api/applications/{id}/feedback", response_model=ApplicationFeedbackResponse)
+def submit_application_feedback(
+    id: int,
+    payload: ApplicationFeedbackCreate,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
+    """Submit ratings and notes feedback for the application after execution."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
+    feedback_rec = db.query(ApplicationFeedback).filter(ApplicationFeedback.application_id == id).first()
+    if not feedback_rec:
+        feedback_rec = ApplicationFeedback(application_id=id)
+        db.add(feedback_rec)
+
+    feedback_rec.outcome = payload.outcome
+    feedback_rec.user_rating = payload.user_rating
+    feedback_rec.resume_rating = payload.resume_rating
+    feedback_rec.match_rating = payload.match_rating
+    feedback_rec.answer_rating = payload.answer_rating
+    feedback_rec.notes = payload.notes
+
+    if payload.outcome:
+        out_upper = payload.outcome.upper()
+        if "REJECT" in out_upper or "REJECTION" in out_upper:
+            app_rec.status = "REJECTED"
+            app_rec.rejected_at = datetime.now()
+        elif "WITHDRAW" in out_upper:
+            app_rec.status = "WITHDRAWN"
+
+    db.commit()
+    db.refresh(feedback_rec)
+    return feedback_rec
+
+
+@router.get("/api/applications/{id}/feedback", response_model=ApplicationFeedbackResponse)
+def get_application_feedback(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
+    """Retrieve feedback and outcome information for a specific application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
+    feedback_rec = db.query(ApplicationFeedback).filter(ApplicationFeedback.application_id == id).first()
+    if not feedback_rec:
+        raise HTTPException(status_code=404, detail=f"Feedback for application {id} not found.")
+
+    return feedback_rec
+
+
+@router.put("/api/applications/{id}/outcome", response_model=ApplicationFeedbackResponse)
+def update_application_outcome(
+    id: int,
+    payload: ApplicationOutcomeUpdate,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
+    """Update manual outcome status for a submitted application."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    app_rec = db.query(Application).filter(Application.id == id, Application.profile_id == profile.id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found.")
+
+    feedback_rec = db.query(ApplicationFeedback).filter(ApplicationFeedback.application_id == id).first()
+    if not feedback_rec:
+        feedback_rec = ApplicationFeedback(application_id=id)
+        db.add(feedback_rec)
+
+    feedback_rec.outcome = payload.outcome
+    if payload.notes:
+        feedback_rec.notes = payload.notes
+
+    out_upper = payload.outcome.upper()
+    if "REJECT" in out_upper or "REJECTION" in out_upper:
+        app_rec.status = "REJECTED"
+        app_rec.rejected_at = datetime.now()
+    elif "WITHDRAW" in out_upper:
+        app_rec.status = "WITHDRAWN"
+
+    db.commit()
+    db.refresh(feedback_rec)
+    return feedback_rec
+

@@ -245,3 +245,25 @@ class ApplicationQueue(Base):
 
     application = relationship("Application", backref=backref("queue_record", uselist=False, cascade="all, delete-orphan"))
 
+
+class ApplicationFeedback(Base):
+    """
+    User feedback and outcome tracking for submitted job applications.
+    """
+    __tablename__ = "application_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+
+    outcome = Column(String(50), nullable=True)  # response, interview, rejection, assessment, offer, withdrawal
+    user_rating = Column(Integer, nullable=True)   # 1 to 5
+    resume_rating = Column(Integer, nullable=True) # 1 to 5
+    match_rating = Column(Integer, nullable=True)  # 1 to 5
+    answer_rating = Column(Integer, nullable=True) # 1 to 5
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+
+    application = relationship("Application", backref=backref("feedback", uselist=False, cascade="all, delete-orphan"))
+
+

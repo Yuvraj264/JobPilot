@@ -19,6 +19,8 @@ from app.services.orchestration.analytics_service import AnalyticsService
 
 from app.api.auth import get_current_user_id
 from app.services.profile_service import ProfileService
+from app.services.matching.career_insights import CareerInsights
+from app.services.orchestration.optimization_engine import OptimizationEngine
 
 router = APIRouter(tags=["Autonomous Orchestration & Scheduler System"])
 
@@ -215,3 +217,22 @@ def update_scheduler_config(payload: SchedulerConfigUpdate):
     """Updates schedule configuration parameters."""
     AutomationScheduler.update_config(payload.model_dump(exclude_unset=True))
     return AutomationScheduler.get_status()
+
+
+@router.get("/api/analytics/career-insights")
+def get_career_insights(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
+    """Retrieve career insights and requested/missing skill demand metrics."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+    return CareerInsights.get_insights(db, profile)
+
+
+@router.get("/api/analytics/optimization-suggestions")
+def get_optimization_suggestions(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
+    """Get actionable optimization suggestions for the profile based on previous runs."""
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+    return OptimizationEngine.get_suggestions(db, profile)
+

@@ -53,6 +53,7 @@ from app.models.application import (
     ApplicationSourceConfiguration,
     HumanInterventionEvent,
     ApplicationQueue,
+    ApplicationFeedback,
 )
 from app.models.orchestration import (
     OrchestrationRun,
@@ -102,6 +103,7 @@ __all__ = [
     "ApplicationSourceConfiguration",
     "HumanInterventionEvent",
     "ApplicationQueue",
+    "ApplicationFeedback",
     "OrchestrationRun",
     "AutomationConfiguration",
     "DailyAutomationMetric",

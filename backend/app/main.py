@@ -37,12 +37,16 @@ app.add_middleware(
 from app.middleware.rate_limit import RateLimitMiddleware
 app.add_middleware(RateLimitMiddleware)
 
-# Include Routers
 @app.on_event("startup")
 def startup_validation():
     # 1. Validate configuration settings
     from app.services.config_validator import ConfigurationValidator
     ConfigurationValidator.validate_settings(settings)
+
+    # 1.5. Ensure all tables are created (including newly added models)
+    from app.database.connection import engine, Base
+    import app.models
+    Base.metadata.create_all(bind=engine)
 
     # 2. Run database crash recovery checks
     from app.database.connection import SessionLocal

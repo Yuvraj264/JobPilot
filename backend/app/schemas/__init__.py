@@ -77,6 +77,11 @@ from app.schemas.application import (
     SubmissionRunResponse,
     ApplicationTimelineResponse,
 )
+from app.schemas.feedback import (
+    ApplicationFeedbackCreate,
+    ApplicationFeedbackResponse,
+    ApplicationOutcomeUpdate,
+)
 
 __all__ = [
     "ProfileCreate",
@@ -142,4 +147,7 @@ __all__ = [
     "SubmissionAuthorizationResponse",
     "SubmissionRunResponse",
     "ApplicationTimelineResponse",
+    "ApplicationFeedbackCreate",
+    "ApplicationFeedbackResponse",
+    "ApplicationOutcomeUpdate",
 ]

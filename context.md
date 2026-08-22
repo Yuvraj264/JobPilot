@@ -20,6 +20,7 @@
 10. **Phase 10: Real Job Source Discovery & Platform Adapter Integration**: `SourceConfiguration` table, `CompanyCareersJobSourceAdapter` parsing (JSON-LD, DOM CSS selectors, Greenhouse, Lever), compliance constraints (LinkedIn/Indeed automated block enforcement), standard error classification, token-based Jaccard similarity cross-source deduplication, job freshness engine, async URL verification checks, detailed discovery runs logging metrics, dashboard config management UI, and 90 automated tests.
 11. **Phase 11: Real Application Adapter Framework & Human-Assisted Application Execution**: Generic Application Adapter, Visual check login detector, Human intervention pause/resume handlers (for CAPTCHA/login), browser isolation, allowed domains validation, and 95 automated tests.
 12. **Phase 12: Autonomous Job Application Orchestration, Scheduling, Monitoring & Analytics**: Configuration presets (`AutomationConfiguration`), Job Selection Service, Retry Manager (recoverability classification), local scheduler daemon, active monitor diagnostics, conversion analytics overview, dashboard React UI, and 100 automated tests.
+13. **Phase 15: Real-World Validation, Reliability Testing & Intelligent Optimization**: Added `ApplicationFeedback` and outcome tracking model/routes, `SkillGapAnalyzer`, `CareerInsights` labor market engine, `OptimizationEngine` suggestor, synthetic golden dataset benchmark suite (matching, resume, screening, form automation), regression tests organized by phase, validation reports (`evaluation-report.md`, `pilot-report.md`, `reliability-targets.md`, `real-world-validation-plan.md`, `optimization-log.md`), and frontend layout polish displaying insights and recommendations.
 
 ## Security Controls & Safety Rules
 - Server-side security checks enforce approval + active authorization token before submission.
@@ -27,3 +28,5 @@
 - Submissions are restricted strictly to local mock portal (`/mock/apply/*`). No real platform automation or anti-bot evasion exists.
 - LinkedIn/Indeed automated discovery is blocked to strictly adhere to platform terms of service.
 - Dry run defaults, safety cooldown buffers, and daily limits checks are strictly verified on orchestrator pipeline entry.
+- Strict screening answer target keyword checks (AWS, Kubernetes, React, CSS, etc.) prevent LLM hallucinations by returning `INSUFFICIENT_INFORMATION` for out-of-bounds queries.
+

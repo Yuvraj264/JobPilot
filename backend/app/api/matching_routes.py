@@ -6,6 +6,8 @@ from app.database.connection import get_db
 from app.services.profile_service import ProfileService
 from app.services.job_matching_service import JobMatchingService
 from app.models.matching import JobMatch, MatchRun, MatchConfig
+from app.models.job import Job
+from app.services.matching.skill_gap_analyzer import SkillGapAnalyzer
 from app.schemas.matching import (
     JobMatchResponse,
     JobMatchDetailResponse,
@@ -168,3 +170,15 @@ def update_matching_config(payload: MatchConfigUpdate, db: Session = Depends(get
     db.commit()
     db.refresh(config)
     return config
+
+
+@router.get("/job/{job_id}/skill-gap")
+def get_job_skill_gap(job_id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
+    """Evaluate skill gap for a specific job requirement compared to candidate profile."""
+    profile = get_profile_by_user(db, current_user_id)
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
+
+    return SkillGapAnalyzer.analyze(profile, job)
+

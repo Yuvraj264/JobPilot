@@ -77,9 +77,9 @@ class AnswerGenerator:
                 return {"status": "READY", "answer": val, "confidence": 0.98, "generated_by": "DETERMINISTIC"}
 
         # 2. Strict Anti-Fabrication Evidence Check for Specific Tech / Projects / Experience
-        if question_type in [QuestionType.PROJECT, QuestionType.TECHNICAL, QuestionType.EXPERIENCE]:
+        if question_type not in [QuestionType.RELOCATION, QuestionType.LOCATION, QuestionType.SALARY, QuestionType.SPONSORSHIP, QuestionType.WORK_AUTHORIZATION]:
             # Detect target keywords in question
-            target_keywords = ["selenium", "aws", "leadership", "docker", "kubernetes", "management", "managing", "lead"]
+            target_keywords = ["selenium", "aws", "leadership", "docker", "kubernetes", "management", "managing", "lead", "react", "css"]
             for kw in target_keywords:
                 if kw in q_lower:
                     # Check if candidate has evidence in skills or projects
