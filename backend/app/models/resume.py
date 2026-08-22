@@ -30,6 +30,7 @@ class Resume(Base):
     file_path = Column(String(500), nullable=False)
     file_type = Column(String(20), nullable=False)  # PDF, DOCX
     file_size = Column(Integer, nullable=False)  # Bytes
+    raw_text = Column(Text, nullable=True)
     
     is_default = Column(Boolean, default=False, nullable=False)
     processing_status = Column(String(50), default="UPLOADED", nullable=False)  # UPLOADED, PROCESSING, PROCESSED, FAILED

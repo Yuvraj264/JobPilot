@@ -72,6 +72,11 @@ from app.models.personalization import (
     OptimizationCycle,
     OptimizationSuggestion,
 )
+from app.models.mission import (
+    JobSearchMission,
+    MissionRun,
+    MissionAuditLog,
+)
 
 
 __all__ = [
@@ -129,4 +134,7 @@ __all__ = [
     "OutcomeFeedback",
     "OptimizationCycle",
     "OptimizationSuggestion",
+    "JobSearchMission",
+    "MissionRun",
+    "MissionAuditLog",
 ]

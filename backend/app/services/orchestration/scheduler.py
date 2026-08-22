@@ -114,14 +114,26 @@ class AutomationScheduler:
     def _trigger_orchestration(cls):
         """Runs the orchestrator asynchronously in a separate worker thread context."""
         from app.services.orchestration.orchestrator import JobPilotOrchestrator
+        from app.models.mission import JobSearchMission
+        from app.services.mission_engine import MissionEngine
         db = SessionLocal()
         try:
-            # Orchestrator default profile runs on profile_id = 1
+            # 1. Orchestrator default profile runs on profile_id = 1
             threading.Thread(
                 target=JobPilotOrchestrator.run_pipeline,
                 args=(db, 1, "SCHEDULED"),
                 daemon=True
             ).start()
+
+            # 2. Query and trigger active missions
+            active_missions = db.query(JobSearchMission).filter(JobSearchMission.status == "ACTIVE").all()
+            for mission in active_missions:
+                threading.Thread(
+                    target=MissionEngine.run_mission,
+                    args=(db, mission.id, "SCHEDULED"),
+                    daemon=True
+                ).start()
+                
         except Exception as e:
             logger.error(f"Failed to launch scheduled run: {e}")
         finally:

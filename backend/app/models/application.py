@@ -28,6 +28,8 @@ class Application(Base):
     application_package_id = Column(Integer, ForeignKey("application_packages.id", ondelete="SET NULL"), nullable=True, index=True)
     selected_resume_id = Column(Integer, ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True, index=True)
     tailored_resume_id = Column(Integer, ForeignKey("tailored_resumes.id", ondelete="SET NULL"), nullable=True, index=True)
+    primary_mission_id = Column(Integer, ForeignKey("job_search_missions.id", ondelete="SET NULL"), nullable=True, index=True)
+    matched_missions = Column(JSON, default=list, nullable=True)
 
     # DISCOVERED, SELECTED, PREPARING, READY_FOR_REVIEW, CHANGES_REQUESTED, APPROVED, SUBMISSION_AUTHORIZED, SUBMITTING, SUBMITTED, PAUSED, FAILED, REJECTED, WITHDRAWN
     status = Column(String(50), default="PREPARING", nullable=False, index=True)
@@ -48,6 +50,7 @@ class Application(Base):
     package = relationship("ApplicationPackage")
     selected_resume = relationship("Resume")
     tailored_resume = relationship("TailoredResume")
+    primary_mission = relationship("JobSearchMission")
 
 
 class ApplicationSnapshot(Base):
