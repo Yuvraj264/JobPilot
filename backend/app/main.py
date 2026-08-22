@@ -17,6 +17,7 @@ from app.api.tailoring_routes import router as tailoring_router
 from app.api.application_routes import router as application_router
 from app.api.orchestration_routes import router as orchestration_router
 from app.api.demo_routes import router as demo_router
+from app.api.personalization_routes import router as personalization_router
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -86,6 +87,7 @@ app.include_router(tailoring_router)
 app.include_router(application_router)
 app.include_router(orchestration_router)
 app.include_router(demo_router)
+app.include_router(personalization_router)
 
 
 @app.get("/", tags=["General"])

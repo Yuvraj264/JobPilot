@@ -1,7 +1,7 @@
 # JobPilot — Operational Flow
 
 ## Overview
-JobPilot is an AI-assisted job application automation platform. Its lifecycle flows through 10 completed phases:
+JobPilot is an AI-assisted job application automation platform. Its lifecycle flows through 16 completed phases:
 
 ```
 [Phase 1: Foundation & Infrastructure] — COMPLETED
@@ -35,6 +35,15 @@ JobPilot is an AI-assisted job application automation platform. Its lifecycle fl
                    │
                    ▼
 [Phase 11: Real Application Adapter Framework & Human-Assisted Execution] — COMPLETED
+                   │
+                   ▼
+[Phase 12: Autonomous Job Ingestion & Loop Orchestration] — COMPLETED
+                   │
+                   ▼
+[Phase 15: Staging Verification & Reliability Targets] — COMPLETED
+                   │
+                   ▼
+[Phase 16: Personal Preferences & Feedback Optimization] — COMPLETED
 ```
 
 ---
@@ -135,3 +144,19 @@ JobPilot is an AI-assisted job application automation platform. Its lifecycle fl
      - Resume Factual Integrity (asserting 0 fabricated claims).
      - Screening Answer Grounding (adversarial queries blocked safely).
      - Form Automation Field Mapping and Duplicate URL Prevention.
+
+---
+
+## Phase 16 Flow: Personalization, Feedback Learning & Continuous Optimization
+
+1. **Preference Configuration & Versioning**:
+   - `PersonalPreferenceProfile` holds explicit settings and toggles (ON/OFF) for role, company, workplace mode, salary, skill, and location configurations.
+   - User updates trigger a snapshot saved to `PreferenceConfigurationVersion` to enable manual rollback.
+2. **Behavioral Signal & Feedback Logging**:
+   - Explicit user feedback (Save, Skip, Interested, Rejection reason) and behavioral signals are stored in the database.
+3. **Smart Matching Personalization**:
+   - Scoring engine computes personalized scores by adjusting the base score with a preference multiplier and a job quality warning factor.
+4. **Non-Intrusive Inferences & System Suggestions**:
+   - `PreferenceInferenceService` maps behavioral trends into suggestions, requiring direct user approval (`Accept`, `Dismiss`, `Remind Later`) to update configurations.
+5. **Recommendation Diversification**:
+   - Recommenders apply round-robin scheduling across company, role category, source, and location parameters to present a varied list of target jobs.

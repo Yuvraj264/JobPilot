@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Dict, Any, List
 from app.models.profile import UserProfile
 from app.models.job import Job
@@ -19,6 +20,7 @@ class ScoringEngine:
     """
     Weighted Scoring & Recommendation Engine.
     Combines eligibility, component scores, configurable weights, and user thresholds.
+    Integrates Personalization profiles and Job Quality Warning filters.
     """
 
     @staticmethod
@@ -74,9 +76,66 @@ class ScoringEngine:
             (components["semantic"] * w_sem)
         ) / total_weight
 
-        overall_score = round(max(0.0, min(100.0, raw_score)), 2)
+        base_score = round(max(0.0, min(100.0, raw_score)), 2)
+        overall_score = base_score
 
-        # 4. Confidence Calculation (Weighted Average of component confidences)
+        # Personalization & Quality Adjustments
+        pref_profile = getattr(profile, "personal_preference_profile", None)
+        personalization_factor = 1.0
+        preference_fit_bonus = 0.0
+        job_quality_factor = 1.0
+        quality_warnings = []
+
+        # Job Quality Detection
+        desc_len = len(job.description or "")
+        if desc_len < 150:
+            quality_warnings.append("JOB_QUALITY_WARNING: Job description is extremely short or incomplete.")
+            job_quality_factor *= 0.90
+        if not job.company_name or job.company_name.lower() in ["unknown", "na", "n/a", ""]:
+            quality_warnings.append("JOB_QUALITY_WARNING: Missing company information.")
+            job_quality_factor *= 0.90
+        if job.posted_at and (datetime.utcnow() - job.posted_at) > timedelta(days=30):
+            quality_warnings.append("JOB_QUALITY_WARNING: Job listing is older than 30 days and may be stale.")
+            job_quality_factor *= 0.95
+
+        # Personal Preference Score adjustment
+        if pref_profile and pref_profile.enabled:
+            title_lower = (job.title or "").lower()
+            for r in pref_profile.preferred_roles:
+                if r.get("value", "").lower() in title_lower:
+                    preference_fit_bonus += 8.0 * r.get("strength", 1.0)
+            for r in pref_profile.disliked_roles:
+                if r.get("value", "").lower() in title_lower:
+                    preference_fit_bonus -= 12.0 * r.get("strength", 1.0)
+
+            desc_lower = (job.description or "").lower()
+            for s in pref_profile.preferred_skills:
+                if s.get("value", "").lower() in desc_lower:
+                    preference_fit_bonus += 3.0 * s.get("strength", 1.0)
+            for s in pref_profile.disliked_skills:
+                if s.get("value", "").lower() in desc_lower:
+                    preference_fit_bonus -= 6.0 * s.get("strength", 1.0)
+
+            work_type = (job.workplace_type or "").upper()
+            for wm in pref_profile.workplace_modes:
+                val = wm.get("value", "").upper()
+                if val == work_type:
+                    if wm.get("type") == "disliked":
+                        preference_fit_bonus -= 15.0 * wm.get("strength", 1.0)
+                    else:
+                        preference_fit_bonus += 5.0 * wm.get("strength", 1.0)
+
+            # Limit preference fit adjustment between -30.0 and +30.0
+            preference_fit_bonus = max(-30.0, min(30.0, preference_fit_bonus))
+            personalization_factor = 1.0 + (preference_fit_bonus / 100.0)
+
+        # Apply factors
+        if pref_profile and pref_profile.enabled:
+            overall_score = round(max(0.0, min(100.0, base_score * personalization_factor * job_quality_factor)), 2)
+        else:
+            overall_score = round(max(0.0, min(100.0, base_score * job_quality_factor)), 2)
+
+        # 4. Confidence Calculation
         conf_skills = 0.95
         conf_role = role_res.get("confidence", 0.85)
         conf_loc = loc_res.get("confidence", 0.9)
@@ -89,11 +148,11 @@ class ScoringEngine:
         threshold_apply = config.threshold_apply if config and config.threshold_apply is not None else 85.0
         threshold_review = config.threshold_review if config and config.threshold_review is not None else 70.0
 
-        # User minimum threshold from Phase 2 application preferences
         user_min_threshold = threshold_apply
         if profile.application_preference and profile.application_preference.min_job_match_score is not None:
             user_min_threshold = max(threshold_apply, float(profile.application_preference.min_job_match_score))
 
+        # Do not allow personalization to override hard eligibility requirements
         if not el_res["eligible"]:
             recommendation = "SKIP"
         elif overall_score >= user_min_threshold:
@@ -118,6 +177,15 @@ class ScoringEngine:
             salary_res=sal_res,
         )
 
+        # Append personalization to explanation
+        exp_dict["base_match"] = base_score
+        exp_dict["preference_fit"] = round(preference_fit_bonus, 2)
+        exp_dict["job_quality_factor"] = round(job_quality_factor, 2)
+        exp_dict["quality_warnings"] = quality_warnings
+        exp_dict["personalization_enabled"] = bool(pref_profile.enabled) if pref_profile else False
+
+        total_warnings = list(el_res["warnings"] or []) + quality_warnings
+
         return {
             "overall_score": overall_score,
             "recommendation": recommendation,
@@ -125,8 +193,9 @@ class ScoringEngine:
             "confidence": conf_overall,
             "component_scores": components,
             "hard_failures": el_res["hard_failures"],
-            "warnings": el_res["warnings"],
+            "warnings": total_warnings,
             "strengths": exp_dict["strengths"],
             "concerns": exp_dict["concerns"],
             "explanation": exp_dict,
         }
+

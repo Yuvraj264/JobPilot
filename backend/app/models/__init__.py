@@ -60,6 +60,18 @@ from app.models.orchestration import (
     AutomationConfiguration,
     DailyAutomationMetric,
 )
+from app.models.personalization import (
+    PersonalPreferenceProfile,
+    PreferenceConfigurationVersion,
+    BehavioralSignal,
+    PreferenceFeedback,
+    JobFeedback,
+    ResumeFeedback,
+    AnswerFeedback,
+    OutcomeFeedback,
+    OptimizationCycle,
+    OptimizationSuggestion,
+)
 
 
 __all__ = [
@@ -107,4 +119,14 @@ __all__ = [
     "OrchestrationRun",
     "AutomationConfiguration",
     "DailyAutomationMetric",
+    "PersonalPreferenceProfile",
+    "PreferenceConfigurationVersion",
+    "BehavioralSignal",
+    "PreferenceFeedback",
+    "JobFeedback",
+    "ResumeFeedback",
+    "AnswerFeedback",
+    "OutcomeFeedback",
+    "OptimizationCycle",
+    "OptimizationSuggestion",
 ]
