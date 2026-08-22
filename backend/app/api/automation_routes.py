@@ -14,16 +14,18 @@ from app.schemas.automation import (
     AutomationStartRequest,
 )
 
+from app.api.auth import get_current_user_id
+
 router = APIRouter(prefix="/api/automation", tags=["Application Automation Agent"])
 
 
 @router.post("/run", response_model=AutomationRunResponse)
-def start_automation_run(payload: AutomationStartRequest, db: Session = Depends(get_db)):
+def start_automation_run(payload: AutomationStartRequest, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Start browser automation run against local mock application server."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         from app.services.seed_service import seed_sample_profile
-        profile = seed_sample_profile(db, user_id=1)
+        profile = seed_sample_profile(db, user_id=current_user_id)
 
     # Ensure synthetic mock job exists in database if job_id is 101
     job = db.query(Job).filter(Job.id == payload.job_id).first()
@@ -58,9 +60,9 @@ def start_automation_run(payload: AutomationStartRequest, db: Session = Depends(
 
 
 @router.get("/runs", response_model=List[AutomationRunResponse])
-def list_automation_runs(limit: int = Query(20, ge=1, le=100), db: Session = Depends(get_db)):
+def list_automation_runs(limit: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List historical automation runs."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         return []
     return db.query(AutomationRun).filter(AutomationRun.profile_id == profile.id).order_by(AutomationRun.started_at.desc()).limit(limit).all()

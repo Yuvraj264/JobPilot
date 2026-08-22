@@ -17,21 +17,35 @@ from app.services.orchestration.scheduler import AutomationScheduler
 from app.services.orchestration.monitor import AutomationMonitor
 from app.services.orchestration.analytics_service import AnalyticsService
 
+from app.api.auth import get_current_user_id
+from app.services.profile_service import ProfileService
+
 router = APIRouter(tags=["Autonomous Orchestration & Scheduler System"])
 
 
+def get_profile_id_by_user(db: Session, user_id: int) -> int:
+    profile = ProfileService.get_profile(db, user_id=user_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="UserProfile not found. Please create a profile first."
+        )
+    return profile.id
+
+
 @router.post("/api/orchestration/run", response_model=OrchestrationRunResponse)
-def run_orchestration(db: Session = Depends(get_db)):
+def run_orchestration(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Triggers end-to-end autonomous pipeline execution in a background thread."""
+    profile_id = get_profile_id_by_user(db, current_user_id)
     active_run = db.query(OrchestrationRun).filter(
-        OrchestrationRun.profile_id == 1,
+        OrchestrationRun.profile_id == profile_id,
         OrchestrationRun.status == "RUNNING"
     ).first()
 
     if active_run:
         return active_run
 
-    run = OrchestrationRun(profile_id=1, status="RUNNING", trigger_type="MANUAL")
+    run = OrchestrationRun(profile_id=profile_id, status="RUNNING", trigger_type="MANUAL")
     db.add(run)
     db.commit()
     db.refresh(run)
@@ -39,7 +53,7 @@ def run_orchestration(db: Session = Depends(get_db)):
     # Spawn daemon execution thread
     threading.Thread(
         target=JobPilotOrchestrator.run_pipeline,
-        args=(db, 1, "MANUAL", run.id),
+        args=(db, profile_id, "MANUAL", run.id),
         daemon=True
     ).start()
 
@@ -47,10 +61,11 @@ def run_orchestration(db: Session = Depends(get_db)):
 
 
 @router.post("/api/orchestration/stop")
-def stop_orchestration(db: Session = Depends(get_db)):
+def stop_orchestration(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Cancels a currently active pipeline run."""
+    profile_id = get_profile_id_by_user(db, current_user_id)
     active_run = db.query(OrchestrationRun).filter(
-        OrchestrationRun.profile_id == 1,
+        OrchestrationRun.profile_id == profile_id,
         OrchestrationRun.status == "RUNNING"
     ).first()
 
@@ -62,9 +77,10 @@ def stop_orchestration(db: Session = Depends(get_db)):
 
 
 @router.get("/api/orchestration/runs", response_model=List[OrchestrationRunResponse])
-def get_orchestration_runs(db: Session = Depends(get_db)):
+def get_orchestration_runs(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieves list of historical orchestration runs."""
-    return db.query(OrchestrationRun).filter(OrchestrationRun.profile_id == 1).order_by(OrchestrationRun.started_at.desc()).all()
+    profile_id = get_profile_id_by_user(db, current_user_id)
+    return db.query(OrchestrationRun).filter(OrchestrationRun.profile_id == profile_id).order_by(OrchestrationRun.started_at.desc()).all()
 
 
 @router.get("/api/orchestration/runs/{id}", response_model=OrchestrationRunResponse)
@@ -77,10 +93,11 @@ def get_orchestration_run(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/api/orchestration/status")
-def get_orchestration_status(db: Session = Depends(get_db)):
+def get_orchestration_status(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Returns active run status."""
+    profile_id = get_profile_id_by_user(db, current_user_id)
     run = db.query(OrchestrationRun).filter(
-        OrchestrationRun.profile_id == 1,
+        OrchestrationRun.profile_id == profile_id,
         OrchestrationRun.status == "RUNNING"
     ).first()
     if run:
@@ -89,15 +106,17 @@ def get_orchestration_status(db: Session = Depends(get_db)):
 
 
 @router.get("/api/orchestration/config", response_model=AutomationConfigurationResponse)
-def get_orchestration_config(db: Session = Depends(get_db)):
+def get_orchestration_config(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Gets pipeline configuration limits and presets."""
-    return JobPilotOrchestrator.get_or_create_config(db, 1)
+    profile_id = get_profile_id_by_user(db, current_user_id)
+    return JobPilotOrchestrator.get_or_create_config(db, profile_id)
 
 
 @router.put("/api/orchestration/config", response_model=AutomationConfigurationResponse)
-def update_orchestration_config(payload: AutomationConfigurationUpdate, db: Session = Depends(get_db)):
+def update_orchestration_config(payload: AutomationConfigurationUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Updates pipeline configuration limits and presets."""
-    config = JobPilotOrchestrator.get_or_create_config(db, 1)
+    profile_id = get_profile_id_by_user(db, current_user_id)
+    config = JobPilotOrchestrator.get_or_create_config(db, profile_id)
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(config, k, v)
     db.commit()
@@ -112,15 +131,17 @@ def get_automation_health(db: Session = Depends(get_db)):
 
 
 @router.get("/api/analytics/overview")
-def get_overview_analytics(db: Session = Depends(get_db)):
+def get_overview_analytics(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Gathers conversion metrics and today's activity overview counters."""
-    return AnalyticsService.get_overview_metrics(db, 1)
+    profile_id = get_profile_id_by_user(db, current_user_id)
+    return AnalyticsService.get_overview_metrics(db, profile_id)
 
 
 @router.get("/api/analytics/applications")
-def get_applications_analytics(db: Session = Depends(get_db)):
+def get_applications_analytics(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Gathers applications statistics and source breakdowns."""
-    return AnalyticsService.get_applications_analytics(db, 1)
+    profile_id = get_profile_id_by_user(db, current_user_id)
+    return AnalyticsService.get_applications_analytics(db, profile_id)
 
 
 @router.get("/api/analytics/jobs")
@@ -130,30 +151,34 @@ def get_jobs_analytics(db: Session = Depends(get_db)):
 
 
 @router.get("/api/analytics/matching")
-def get_matching_analytics(db: Session = Depends(get_db)):
+def get_matching_analytics(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Returns match score distribution charts metrics."""
-    return AnalyticsService.get_matching_analytics(db, 1)
+    profile_id = get_profile_id_by_user(db, current_user_id)
+    return AnalyticsService.get_matching_analytics(db, profile_id)
 
 
 @router.get("/api/analytics/failures")
-def get_failures_analytics(db: Session = Depends(get_db)):
+def get_failures_analytics(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Groups run failures by cause categories."""
-    return AnalyticsService.get_failures_analytics(db, 1)
+    profile_id = get_profile_id_by_user(db, current_user_id)
+    return AnalyticsService.get_failures_analytics(db, profile_id)
 
 
 @router.get("/api/analytics/sources")
-def get_sources_analytics(db: Session = Depends(get_db)):
+def get_sources_analytics(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Calculates success rates per source target."""
-    return AnalyticsService.get_sources_analytics(db, 1)
+    profile_id = get_profile_id_by_user(db, current_user_id)
+    return AnalyticsService.get_sources_analytics(db, profile_id)
 
 
 @router.get("/api/review/queue")
-def get_review_queue(db: Session = Depends(get_db)):
+def get_review_queue(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Lists applications requiring manual human reviews or intervention resolves."""
+    profile_id = get_profile_id_by_user(db, current_user_id)
     from app.models.application import Application
     return db.query(Application).filter(
-        Application.profile_id == 1,
-        Application.status.in_(["READY_FOR_REVIEW", "PAUSED"])
+        Application.profile_id == profile_id,
+        Application.status.in_(["READY_FOR_REVIEW", "PAUSED", "REVIEW"])
     ).all()
 
 

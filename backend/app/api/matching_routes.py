@@ -16,15 +16,25 @@ from app.schemas.matching import (
     BatchMatchRequest,
 )
 
+from app.api.auth import get_current_user_id
+
 router = APIRouter(prefix="/api/matching", tags=["Job Matching & Intelligent Selection"])
 
 
-@router.post("/job/{job_id}", response_model=JobMatchDetailResponse)
-def evaluate_single_job(job_id: int, db: Session = Depends(get_db)):
-    """Evaluate a single job against current user profile."""
-    profile = ProfileService.get_profile(db, user_id=1)
+def get_profile_by_user(db: Session, user_id: int) -> int:
+    profile = ProfileService.get_profile(db, user_id=user_id)
     if not profile:
-        raise HTTPException(status_code=404, detail="User profile not found. Please create a profile first.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="UserProfile not found. Please create a profile first."
+        )
+    return profile
+
+
+@router.post("/job/{job_id}", response_model=JobMatchDetailResponse)
+def evaluate_single_job(job_id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
+    """Evaluate a single job against current user profile."""
+    profile = get_profile_by_user(db, current_user_id)
 
     try:
         match_rec = JobMatchingService.match_single_job(db, job_id=job_id, profile_id=profile.id)
@@ -34,11 +44,9 @@ def evaluate_single_job(job_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/job/{job_id}", response_model=JobMatchDetailResponse)
-def get_job_match(job_id: int, db: Session = Depends(get_db)):
+def get_job_match(job_id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve existing match evaluation result for a job."""
-    profile = ProfileService.get_profile(db, user_id=1)
-    if not profile:
-        raise HTTPException(status_code=404, detail="User profile not found.")
+    profile = get_profile_by_user(db, current_user_id)
 
     match_rec = db.query(JobMatch).filter(
         JobMatch.job_id == job_id,
@@ -63,9 +71,10 @@ def list_job_matches(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """List evaluated job matches with filtering and pagination."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         return []
 
@@ -82,13 +91,13 @@ def list_job_matches(
 
 
 @router.post("/run", response_model=MatchRunResponse)
-def run_batch_matching(body: Optional[BatchMatchRequest] = None, db: Session = Depends(get_db)):
+def run_batch_matching(body: Optional[BatchMatchRequest] = None, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Trigger batch matching run across all active jobs."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         # Auto-seed profile if unpopulated
         from app.services.seed_service import seed_sample_profile
-        profile = seed_sample_profile(db, user_id=1)
+        profile = seed_sample_profile(db, user_id=current_user_id)
 
     limit = body.limit if body else 100
     try:
@@ -98,9 +107,9 @@ def run_batch_matching(body: Optional[BatchMatchRequest] = None, db: Session = D
 
 
 @router.get("/runs", response_model=List[MatchRunResponse])
-def list_match_runs(limit: int = Query(20, ge=1, le=100), db: Session = Depends(get_db)):
+def list_match_runs(limit: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve audit logs of historical batch matching runs."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         return []
     return db.query(MatchRun).filter(MatchRun.profile_id == profile.id).order_by(MatchRun.started_at.desc()).limit(limit).all()
@@ -116,9 +125,9 @@ def get_match_run(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/stats", response_model=MatchStatsResponse)
-def get_matching_stats(db: Session = Depends(get_db)):
+def get_matching_stats(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve job matching dashboard metrics."""
-    profile = ProfileService.get_profile(db, user_id=1)
+    profile = ProfileService.get_profile(db, user_id=current_user_id)
     if not profile:
         return {
             "jobs_evaluated": 0,
@@ -132,20 +141,16 @@ def get_matching_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/config", response_model=MatchConfigResponse)
-def get_matching_config(db: Session = Depends(get_db)):
+def get_matching_config(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve matching scoring weights and thresholds configuration."""
-    profile = ProfileService.get_profile(db, user_id=1)
-    if not profile:
-        raise HTTPException(status_code=404, detail="User profile not found.")
+    profile = get_profile_by_user(db, current_user_id)
     return JobMatchingService.get_or_create_config(db, profile.id)
 
 
 @router.put("/config", response_model=MatchConfigResponse)
-def update_matching_config(payload: MatchConfigUpdate, db: Session = Depends(get_db)):
+def update_matching_config(payload: MatchConfigUpdate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Update matching scoring weights and recommendation thresholds."""
-    profile = ProfileService.get_profile(db, user_id=1)
-    if not profile:
-        raise HTTPException(status_code=404, detail="User profile not found.")
+    profile = get_profile_by_user(db, current_user_id)
 
     config = JobMatchingService.get_or_create_config(db, profile.id)
 

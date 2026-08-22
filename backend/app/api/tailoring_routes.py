@@ -20,19 +20,32 @@ from app.schemas.tailoring import (
 router = APIRouter(tags=["Resume Tailoring & Application Packages"])
 
 
+from app.api.auth import get_current_user_id
+
+router = APIRouter(tags=["Resume Tailoring & Application Packages"])
+
+
+def get_profile_by_user(db: Session, user_id: int) -> int:
+    profile = ProfileService.get_profile(db, user_id=user_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="UserProfile not found. Please create a profile first."
+        )
+    return profile
+
+
 @router.post("/api/resumes/{resume_id}/tailor/{job_id}", response_model=TailoredResumeResponse)
-def tailor_resume_for_job(resume_id: int, job_id: int, db: Session = Depends(get_db)):
+def tailor_resume_for_job(resume_id: int, job_id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Trigger job-specific resume tailoring pipeline."""
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail=f"Job with ID {job_id} not found.")
 
-    profile = ProfileService.get_profile(db, user_id=1)
-    if not profile:
-        from app.services.seed_service import seed_sample_profile
-        profile = seed_sample_profile(db, user_id=1)
-
-    master_resume = db.query(Resume).filter(Resume.id == resume_id).first()
+    profile = get_profile_by_user(db, current_user_id)
+    master_resume = db.query(Resume).filter(Resume.id == resume_id, Resume.profile_id == profile.id).first()
+    if not master_resume:
+        raise HTTPException(status_code=404, detail="Master resume not found.")
 
     try:
         tailored = ResumeTailoringService.tailor_resume(db, profile, job, master_resume)
@@ -42,24 +55,27 @@ def tailor_resume_for_job(resume_id: int, job_id: int, db: Session = Depends(get
 
 
 @router.get("/api/tailored-resumes", response_model=List[TailoredResumeResponse])
-def list_tailored_resumes(db: Session = Depends(get_db)):
-    """List all generated tailored resumes."""
-    return db.query(TailoredResume).order_by(TailoredResume.created_at.desc()).all()
+def list_tailored_resumes(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
+    """List all generated tailored resumes for the current profile."""
+    profile = get_profile_by_user(db, current_user_id)
+    return db.query(TailoredResume).filter(TailoredResume.profile_id == profile.id).order_by(TailoredResume.created_at.desc()).all()
 
 
 @router.get("/api/tailored-resumes/{id}", response_model=TailoredResumeResponse)
-def get_tailored_resume(id: int, db: Session = Depends(get_db)):
+def get_tailored_resume(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve single tailored resume record."""
-    rec = db.query(TailoredResume).filter(TailoredResume.id == id).first()
+    profile = get_profile_by_user(db, current_user_id)
+    rec = db.query(TailoredResume).filter(TailoredResume.id == id, TailoredResume.profile_id == profile.id).first()
     if not rec:
         raise HTTPException(status_code=404, detail=f"TailoredResume {id} not found.")
     return rec
 
 
 @router.get("/api/tailored-resumes/{id}/preview", response_model=TailoredResumePreviewResponse)
-def get_tailored_resume_preview(id: int, db: Session = Depends(get_db)):
+def get_tailored_resume_preview(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve intermediate structured ResumeDocument content for UI preview."""
-    rec = db.query(TailoredResume).filter(TailoredResume.id == id).first()
+    profile = get_profile_by_user(db, current_user_id)
+    rec = db.query(TailoredResume).filter(TailoredResume.id == id, TailoredResume.profile_id == profile.id).first()
     if not rec:
         raise HTTPException(status_code=404, detail=f"TailoredResume {id} not found.")
     return {
@@ -70,9 +86,10 @@ def get_tailored_resume_preview(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/api/tailored-resumes/{id}/changes", response_model=ChangeReportResponse)
-def get_tailored_resume_changes(id: int, db: Session = Depends(get_db)):
+def get_tailored_resume_changes(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve change report and keyword coverage analysis."""
-    rec = db.query(TailoredResume).filter(TailoredResume.id == id).first()
+    profile = get_profile_by_user(db, current_user_id)
+    rec = db.query(TailoredResume).filter(TailoredResume.id == id, TailoredResume.profile_id == profile.id).first()
     if not rec:
         raise HTTPException(status_code=404, detail=f"TailoredResume {id} not found.")
     return {
@@ -83,9 +100,10 @@ def get_tailored_resume_changes(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/api/tailored-resumes/{id}/validation")
-def get_tailored_resume_validation(id: int, db: Session = Depends(get_db)):
+def get_tailored_resume_validation(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve truthfulness validation status for tailored resume."""
-    rec = db.query(TailoredResume).filter(TailoredResume.id == id).first()
+    profile = get_profile_by_user(db, current_user_id)
+    rec = db.query(TailoredResume).filter(TailoredResume.id == id, TailoredResume.profile_id == profile.id).first()
     if not rec:
         raise HTTPException(status_code=404, detail=f"TailoredResume {id} not found.")
     return {
@@ -96,12 +114,9 @@ def get_tailored_resume_validation(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/application-packages", response_model=ApplicationPackageResponse)
-def create_application_package(payload: ApplicationPackageCreate, db: Session = Depends(get_db)):
+def create_application_package(payload: ApplicationPackageCreate, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Assemble an ApplicationPackage for target job."""
-    profile = ProfileService.get_profile(db, user_id=1)
-    if not profile:
-        from app.services.seed_service import seed_sample_profile
-        profile = seed_sample_profile(db, user_id=1)
+    profile = get_profile_by_user(db, current_user_id)
 
     try:
         pkg = ApplicationPackageService.create_package(
@@ -117,22 +132,28 @@ def create_application_package(payload: ApplicationPackageCreate, db: Session = 
 
 
 @router.get("/api/application-packages", response_model=List[ApplicationPackageResponse])
-def list_application_packages(db: Session = Depends(get_db)):
+def list_application_packages(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """List all application packages."""
-    return db.query(ApplicationPackage).order_by(ApplicationPackage.created_at.desc()).all()
+    profile = get_profile_by_user(db, current_user_id)
+    return db.query(ApplicationPackage).filter(ApplicationPackage.profile_id == profile.id).order_by(ApplicationPackage.created_at.desc()).all()
 
 
 @router.get("/api/application-packages/{id}", response_model=ApplicationPackageResponse)
-def get_application_package(id: int, db: Session = Depends(get_db)):
+def get_application_package(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Retrieve single application package details."""
-    pkg = db.query(ApplicationPackage).filter(ApplicationPackage.id == id).first()
+    profile = get_profile_by_user(db, current_user_id)
+    pkg = db.query(ApplicationPackage).filter(ApplicationPackage.id == id, ApplicationPackage.profile_id == profile.id).first()
     if not pkg:
         raise HTTPException(status_code=404, detail=f"ApplicationPackage {id} not found.")
     return pkg
 
 
 @router.post("/api/application-packages/{id}/validate")
-def validate_application_package(id: int, db: Session = Depends(get_db)):
+def validate_application_package(id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
     """Validate readiness of application package."""
+    profile = get_profile_by_user(db, current_user_id)
+    pkg = db.query(ApplicationPackage).filter(ApplicationPackage.id == id, ApplicationPackage.profile_id == profile.id).first()
+    if not pkg:
+        raise HTTPException(status_code=404, detail=f"ApplicationPackage {id} not found.")
     res = ApplicationPackageService.validate_package(db, id)
     return res
