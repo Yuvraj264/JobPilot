@@ -21,6 +21,10 @@ JobPilot is an AI-assisted job application automation platform designed to disco
 - - **Phase 10 — Real Job Source Discovery & Platform Adapter Integration**: `SourceConfiguration` model, `CompanyCareersJobSourceAdapter` (JSON-LD parsing, DOM CSS scraping, Greenhouse and Lever APIs), compliance matrices, standard error classification, token-based Jaccard similarity deduplication, freshness engine, async URL verification checks, and configuration UI.
 - - **Phase 11 — Real Application Adapter Framework & Human-Assisted Application Execution**: Generic Application Adapter, anti-bot checkpoints detector, visual human login and CAPTCHA intervention pause/resume controls, target domain validation safety rules.
 - - **Phase 12 — Autonomous Job Application Orchestration, Scheduling, Monitoring & Analytics**: Orchestrator runner daemon, job selection/cooldown duplicate checker, transient error retry manager, monitor health metrics, conversion metrics pipeline dashboard, and React UI.
+- - **Phase 15 — Real-World Validation, Reliability Testing & Intelligent Optimization**: Job quality feedback loops, career skills insights gap analysis, optimization engine suggests, and regression test suites.
+- - **Phase 16 — Personalization, Feedback Learning & Continuous Optimization**: Profile targets preference versioning, recommendation diversification, non-intrusive inferencing updates.
+- - **Phase 17 — Job Search Missions, Autonomous Goals & Application Campaigns**: Campaign settings scheduling, mode conflicts detection, background queue manager.
+- - **Phase 18 — Agent Decision Engine & Autonomous Application Planning**: Cognitive decision engine builder, safety policy gateway validation engine, human interventions, simulator panel.
 - 
 - ---
 - 
@@ -62,7 +66,7 @@ JobPilot is an AI-assisted job application automation platform designed to disco
 - source .venv/bin/activate
 - PYTHONPATH=backend:browser-agent pytest tests/
 - ```
-- All **100 automated tests** passing.
+- All **126 automated tests** passing.
 - 
 - Run frontend build:
 - ```bash

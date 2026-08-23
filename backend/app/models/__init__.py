@@ -77,6 +77,7 @@ from app.models.mission import (
     MissionRun,
     MissionAuditLog,
 )
+from app.models.agent import AgentDecisionRecord
 
 
 __all__ = [
@@ -137,4 +138,5 @@ __all__ = [
     "JobSearchMission",
     "MissionRun",
     "MissionAuditLog",
+    "AgentDecisionRecord",
 ]

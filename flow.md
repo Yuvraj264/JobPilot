@@ -160,3 +160,30 @@ JobPilot is an AI-assisted job application automation platform. Its lifecycle fl
    - `PreferenceInferenceService` maps behavioral trends into suggestions, requiring direct user approval (`Accept`, `Dismiss`, `Remind Later`) to update configurations.
 5. **Recommendation Diversification**:
    - Recommenders apply round-robin scheduling across company, role category, source, and location parameters to present a varied list of target jobs.
+
+---
+
+## Phase 17 Flow: Job Search Missions, Autonomous Goals & Application Campaigns [COMPLETED]
+
+1. **Campaign Specifications**:
+   - `JobSearchMission` defines search targets, scheduling, application strategies, and daily application limits.
+2. **Deterministic Validation**:
+   - Validates configuration parameters and checks for workplace mode conflicts (Global Remote Only vs Mission Onsite Only).
+3. **Execution Runs**:
+   - Iterates through active missions asynchronously, running discovery matching, selection filtering, packaging, and queuing application records.
+4. **Attribution & Diagnostic Monitoring**:
+   - Links applications to primary mission IDs, logs metrics in `MissionRun` records, and updates diagnostic health summaries.
+
+---
+
+## Phase 18 Flow: Agent Decision Engine & Autonomous Application Planning [COMPLETED]
+
+1. **Advisory Decision Processing**:
+   - `AgentDecisionEngine` orchestrates context snap construction, runs deterministic rules, risk-scores proposed candidate actions, and generates structured explanations.
+2. **Deterministic Policy Gatekeeper**:
+   - `AgentPolicyEngine` enforces hierarchical safety rules checks. Any attempt to expand permissions is blocked automatically.
+3. **Action Gateway**:
+   - `AgentActionGateway` serves as the exclusive whitelisted pathway for the agent, verifying permissions before executing Mutations.
+4. **Human Escalation**:
+   - Human interventions are categorized by priority and recorded as tasks to handle CAPTCHAs, authentication locks, or approvals.
+

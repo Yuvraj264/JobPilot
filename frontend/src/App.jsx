@@ -14,6 +14,7 @@ import Dashboard from './components/Dashboard'
 import OnboardingWizard from './components/OnboardingWizard'
 import PreferenceManager from './components/PreferenceManager'
 import MissionControlCenter from './components/MissionControlCenter'
+import AgentControlCenter from './components/AgentControlCenter'
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -146,7 +147,8 @@ function App() {
               { id: 'automation', label: 'Automation Loop', icon: '⚙️' },
               { id: 'analytics', label: 'Analytics', icon: '📈' },
               { id: 'preferences', label: 'Preferences', icon: '🛠️' },
-              { id: 'missions', label: 'Search Missions', icon: '🎯' }
+              { id: 'missions', label: 'Search Missions', icon: '🎯' },
+              { id: 'agent', label: 'Agent Center', icon: '🧠' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -304,6 +306,7 @@ function App() {
           {activeTab === 'analytics' && <AnalyticsCenter userId={userId} />}
           {activeTab === 'preferences' && <PreferenceManager userId={userId} />}
           {activeTab === 'missions' && <MissionControlCenter userId={userId} />}
+          {activeTab === 'agent' && <AgentControlCenter userId={userId} />}
         </div>
       </div>
 

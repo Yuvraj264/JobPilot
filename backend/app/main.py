@@ -19,6 +19,7 @@ from app.api.orchestration_routes import router as orchestration_router
 from app.api.demo_routes import router as demo_router
 from app.api.personalization_routes import router as personalization_router
 from app.api.mission_routes import router as mission_router
+from app.api.agent_routes import router as agent_router
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -31,6 +32,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -90,6 +92,7 @@ app.include_router(orchestration_router)
 app.include_router(demo_router)
 app.include_router(personalization_router)
 app.include_router(mission_router)
+app.include_router(agent_router)
 
 
 @app.get("/", tags=["General"])
